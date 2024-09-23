@@ -21,6 +21,43 @@ View the [file.](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/checky
 - Colored Output
 - Run with `make`, `bash`, or a `Dockerfile`
 
+## Build Instructions
+
+### Makefile
+
+1. **Build the Project**:
+```bash
+make build
+```
+
+2. **Run Test**:
+ ```bash
+make test
+```
+
+### `run.sh`
+1. **Build the Project**:
+```bash
+./run.sh build
+```
+
+2. **Run Test**:
+ ```bash
+./run.sh test
+```
+
+### Dockerfile
+1. **Build the Project**:
+```bash
+docker build -t check-your-lua .
+```
+
+2. **Run Test**:
+ ```bash
+docker run --rm check-your-lua lua tests/tests.lua  # Replace test_file.lua with your actual test file
+
+```
+
 ## License
 
 ![Unlicense](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/LICENSE)
