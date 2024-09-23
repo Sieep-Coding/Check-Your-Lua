@@ -19,6 +19,7 @@ View the [file.](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/checky
 - Single file, efficient and portable
 - Zero Dependencies
 - Colored Output
+- Run with `make`, `bash`, or a `Dockerfile`
 
 ## License
 
