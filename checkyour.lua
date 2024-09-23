@@ -78,7 +78,7 @@ local cyl_start = os.clock()
 local function reportResults()
     local colors_reset = color_codes.reset
     io.write(
-        color_codes.green, "Results: ",
+        color_codes.blue, "Results: ",
         color_codes.green, results.passed, colors_reset, " passed / ",
         color_codes.red, results.failed, colors_reset, " failed / ",
         color_codes.yellow, results.skipped, colors_reset, " skipped\n"
