@@ -1,0 +1,2 @@
+build:
+	lua CYL.lua

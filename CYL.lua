@@ -39,6 +39,10 @@ local function is_utf8term()
     return (lang and lang:lower():match('utf%-?8$')) and true or false
 end
 
+local function error_handler(err)
+    return debug.traceback(tostring(err), 2)
+end
+
     -- Returns whether a system environment variable is "true".
 local function getboolenv(varname, default)
     local val = os.getenv(varname)
@@ -62,10 +66,6 @@ local checkyourlua = {
         seconds = os.clock,
     }
 
-local function checkyourlua.parseargs()
-        
-end
-
 local colors = setmetatable({}, {__index = function (_, key)
      return checkyourlua.color and color_codes[key] or ''
 end})
@@ -86,7 +86,7 @@ return total_failures == 0
 end
 
 
-function exitCYL()
+function ExitCYL()
     collectgarbage()
     collectgarbage()
     os.exit(total_failures == 0, true)
@@ -116,15 +116,11 @@ function expect.fail(func, expected)
     elseif expected ~= nil then
         local found = expected == err
         if not found and type(expected) == 'string' then
-            found = string.find(tostring(err), expected, 1, true)
+            found = string.find(tostring(err), expected, 1, true) ~= nil
         end
         if not found then
             error('expected function to fail\nexpected:\n'..tostring(expected)..'\ngot:\n'..tostring(err), 2)
         end
     end
-end
-
-function expect.not_equal(v1, v2)
-    if expect.strict_eq(v1, v2) then
-        local v1s, v2s = expect.t
+    return true
 end
