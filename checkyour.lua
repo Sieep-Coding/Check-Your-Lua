@@ -37,14 +37,14 @@ For more information, please refer to <https://unlicense.org>
 
 local log = {}
 function log.info(m)
-    print('[INFO]'..m)    
+    print('[INFO] '..m)    
 end
 
 function log.error(m)
-    print('[ERROR]'..m)   
+    print('[ERROR] '..m)   
 end
 
-log.info('Test Started')
+log.info('Check Your Lua has started.')
 
 -- Color codes.
 local color_codes = {
@@ -71,10 +71,20 @@ local start = 0
 local befores = {}
 local afters = {}
 local names = {}
-local results = {passsed=0,failed=0}
+local results = {passed=0, failed=0, skipped=0}
 
-function reportresults()
-    print("Passed:" .. results.passsed .. ", Failed:" .. results.failed)
+local cyl_start = os.clock()
+
+local function reportResults()
+    local colors_reset = color_codes.reset
+    io.write(
+        color_codes.green, "Results: ",
+        color_codes.green, results.passed, colors_reset, " passed / ",
+        color_codes.red, results.failed, colors_reset, " failed / ",
+        color_codes.yellow, results.skipped, colors_reset, " skipped\n"
+    )
+    io.write(color_codes.bright, string.format("Total Time: %.6f seconds\n", os.clock() - cyl_start), colors_reset)
+    io.flush()
 end
 
     -- checks for terminal support for UTF-8
@@ -160,15 +170,28 @@ function expect.tohstring(v)
 function expect.fail(func, expected)
     local ok, err = pcall(func)
     if ok then
-        error("expected function to fail", 2)
-    elseif expected ~= nil then
-        local found = expected == err
-        if not found and type(expected) == 'string' then
-            found = string.find(tostring(err), expected, 1, true) ~= nil
-        end
-        if not found then
-            error('expected function to fail\nexpected:\n'..tostring(expected)..'\ngot:\n'..tostring(err), 2)
-        end
+        log.error("Expected function to fail, but it succeeded.")
+        results.failed = results.failed + 1
+    elseif expected ~= nil and not (expected == err or string.find(tostring(err), expected, 1, true)) then
+        log.error(string.format("Expected: %s, Got: %s", expected, tostring(err)))
+        results.failed = results.failed + 1
+    else
+        results.passed = results.passed + 1
     end
     return true
 end
+
+-- Example test
+local function testExample()
+    expect.fail(function() error("Test failure!") end, "Test failure!")
+    expect.fail(function() error("Test failure!") end, "Test failure!")
+    expect.fail(function() error("Test failure!") end, "Test failure!")
+    expect.fail(function() error("Test failure!") end, "Test failure!")
+    expect.fail(function() error("Test failure!") end, "Test failure!")
+    expect.fail(function() error("Test failure!") end, "Test failure!")
+    expect.fail(function() error("Test failure!") end, "Test failure!")
+end
+
+-- Run tests
+testExample()
+reportResults()
