@@ -1,10 +1,38 @@
 --[[
+
 CHECK YOUR LUA
-Minimal Lua test framework.
-CHECK YOUR LUA - v0.0.1 - 22/Sep/2024
+Minimal Lua testing framework.
 Nick Stambaugh - nickstambaugh@proton.me
 https://github.com/sieep-coding/Check-Your-Lua
 https://nickstambaugh.vercel.app
+
+--Licsense--
+
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org>
+
 ]]
 
 local log = {}
@@ -63,7 +91,7 @@ local function error_handler(err)
     return debug.traceback(tostring(err), 2)
 end
 
-    -- Returns whether a system environment variable is "true".
+-- Returns whether a system environment variable is "true".
 local function getboolenv(varname, default)
     local val = os.getenv(varname)
     if val == 'true' then
@@ -74,12 +102,14 @@ local function getboolenv(varname, default)
     return default
 end
 
-    --The Check Your Lua Module
+--The Check Your Lua Module
 local checkyourlua = {
         --- Whether the output should  be colorized. True by default.
         color = getboolenv('CYL_COLOR', true),
         --- Whether lines of passed tests should not be printed. False by default.
         quiet = getboolenv('LESTER_QUIET', false),
+        --- Whether a traceback must be shown on test failures. True by default.
+        show_traceback = getboolenv('CYL_SHOW_TRACEBACK', true),
         --- Whether we can print UTF-8 characters to the terminal. True by default when supported.
         utf8term = getboolenv('CYL_UTF8TERM', is_utf8term()),
         --- Function to retrieve time in seconds with milliseconds precision, `os.clock` by default.
