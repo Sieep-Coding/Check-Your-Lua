@@ -7,8 +7,8 @@ Nick Stambaugh - nickstambaugh@proton.me
 https://github.com/sieep-coding/check-your-lua
 ]]
 
-    -- Color codes.
-    local color_codes = {
+-- Color codes.
+local color_codes = {
     reset = string.char(27) .. '[0m',
     bright = string.char(27) .. '[1m',
     red = string.char(27) .. '[31m',
@@ -16,7 +16,7 @@ https://github.com/sieep-coding/check-your-lua
     yellow = string.char(27) .. '[33m',
     blue = string.char(27) .. '[34m',
     magenta = string.char(27) .. '[35m',
-    }
+}
 
     -- Variables used internally for the CYL state.
 local cyl_start = nil
