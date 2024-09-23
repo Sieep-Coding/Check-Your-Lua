@@ -94,4 +94,37 @@ end
 -- local quiet_o_char = string.char(226, 151, 143)
 
 
+
 local expect = {}
+
+checkyourlua.expect = expect
+
+
+function expect.tohstring(v)
+    local s = tostring(v)
+    if s:find'[^ -~\n\t]' then
+      return '"'..s:gsub('.', function(c) return string.format('\\x%02X', c:byte()) end)..'"'
+    end
+    return s
+  end
+
+--check if function fails
+function expect.fail(func, expected)
+    local ok, err = pcall(func)
+    if ok then
+        error("expected function to fail", 2)
+    elseif expected ~= nil then
+        local found = expected == err
+        if not found and type(expected) == 'string' then
+            found = string.find(tostring(err), expected, 1, true)
+        end
+        if not found then
+            error('expected function to fail\nexpected:\n'..tostring(expected)..'\ngot:\n'..tostring(err), 2)
+        end
+    end
+end
+
+function expect.not_equal(v1, v2)
+    if expect.strict_eq(v1, v2) then
+        local v1s, v2s = expect.t
+end
