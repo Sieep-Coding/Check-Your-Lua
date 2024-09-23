@@ -44,8 +44,6 @@ function log.error(m)
     print('[ERROR] '..m)   
 end
 
-log.info('Check Your Lua has started.')
-
 -- Color codes.
 local color_codes = {
     reset = string.char(27) .. '[0m',
@@ -182,6 +180,7 @@ function expect.fail(func, expected)
 end
 
 -- Example test
+log.info('Check Your Lua has started.')
 local function testExample()
     expect.fail(function() error("Test failure!") end, "Test failure!")
     expect.fail(function() error("Test failure!") end, "Test failure!")
