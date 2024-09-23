@@ -1,4 +1,3 @@
-
 --[[
 CHECK YOUR LUA
 Minimal Lua test framework.
@@ -92,12 +91,10 @@ function ExitCYL()
     collectgarbage()
     os.exit(total_failures == 0, true)
 end
+
 -- local quiet_o_char = string.char(226, 151, 143)
 
-
-
 local expect = {}
-
 checkyourlua.expect = expect
 
 
