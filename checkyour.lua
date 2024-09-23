@@ -6,7 +6,7 @@ Nick Stambaugh - nickstambaugh@proton.me
 https://github.com/sieep-coding/Check-Your-Lua
 https://nickstambaugh.vercel.app
 
---Licsense--
+--License--
 
 This is free and unencumbered software released into the public domain.
 
