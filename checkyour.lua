@@ -107,7 +107,7 @@ local checkyourlua = {
         --- Whether the output should  be colorized. True by default.
         color = getboolenv('CYL_COLOR', true),
         --- Whether lines of passed tests should not be printed. False by default.
-        quiet = getboolenv('LESTER_QUIET', false),
+        quiet = getboolenv('CYL_QUIET', false),
         --- Whether a traceback must be shown on test failures. True by default.
         show_traceback = getboolenv('CYL_SHOW_TRACEBACK', true),
         --- Whether we can print UTF-8 characters to the terminal. True by default when supported.
