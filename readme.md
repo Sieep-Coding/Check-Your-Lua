@@ -2,6 +2,8 @@
 
 I didn't like any testing frameworks so I wrote my own.
 
+![License: UNLICENSE](https://img.shields.io/badge/License-UNLICENSE-blue.svg)
+
 ## Features
 
 - Single file, efficient and portable
@@ -11,4 +13,4 @@ I didn't like any testing frameworks so I wrote my own.
 
 ## License
 
-![License](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/LICENSE)
+![Unlicense](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/LICENSE)
