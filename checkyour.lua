@@ -3,7 +3,7 @@ CHECK YOUR LUA
 Minimal Lua test framework.
 CHECK YOUR LUA - v0.0.1 - 22/Sep/2024
 Nick Stambaugh - nickstambaugh@proton.me
-https://github.com/sieep-coding/check-your-lua
+https://github.com/sieep-coding/Check-Your-Lua
 https://nickstambaugh.vercel.app
 ]]
 
