@@ -20,7 +20,7 @@ Access the documentation [here](https://sieep-coding.github.io/cyl-docs/).
 
 View the [file.](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/checkyour.lua)
 
-* Single file, efficient and portable.
+- Single file, efficient and portable.
 - Lua 5.1+ and beyond supported.
 - Zero Dependencies.
 - Colored Output.
