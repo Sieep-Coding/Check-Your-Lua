@@ -7,6 +7,17 @@ https://github.com/sieep-coding/check-your-lua
 https://nickstambaugh.vercel.app
 ]]
 
+local log = {}
+function log.info(m)
+    print('[INFO]'..m)    
+end
+
+function log.error(m)
+    print('[ERROR]'..m)   
+end
+
+log.info('Test Started')
+
 -- Color codes.
 local color_codes = {
     reset = string.char(27) .. '[0m',
@@ -32,11 +43,20 @@ local start = 0
 local befores = {}
 local afters = {}
 local names = {}
+local results = {passsed=0,failed=0}
+
+function reportresults()
+    print("Passed:" .. results.passsed .. ", Failed:" .. results.failed)
+end
 
     -- checks for terminal support for UTF-8
 local function is_utf8term()
     local lang = os.getenv('lang')
     return (lang and lang:lower():match('utf%-?8$')) and true or false
+end
+
+local function exitwithCode(code)
+    os.exit(code)
 end
 
 local function error_handler(err)
