@@ -1,5 +1,9 @@
 # Check Yor Lua 🔎 The Minimal Testing Framework
 
+A single-file, minimal Lua testing framework. 
+
+Portable and easy to run.
+
 I didn't like any testing frameworks so I wrote my own.
 
 ![License: UNLICENSE](https://img.shields.io/badge/License-UNLICENSE-blue.svg)
