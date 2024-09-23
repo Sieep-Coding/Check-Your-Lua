@@ -24,6 +24,8 @@ View the [file.](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/checky
 - Lua 5.1+ and beyond supported.
 - Zero Dependencies.
 - Colored Output.
+- Shows time and performance.
+- Excellent logging.
 - Run with `make`, `bash`, or a `Dockerfile`.
 - Unlicense license.
 - Extensive [documentation](https://sieep-coding.github.io/cyl-docs/).
