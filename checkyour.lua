@@ -37,11 +37,11 @@ For more information, please refer to <https://unlicense.org>
 
 local log = {}
 function log.info(m)
-    print('[INFO] '..m)    
+    print('[INFO] '..m)
 end
 
 function log.error(m)
-    print('[ERROR] '..m)   
+    print('[ERROR] '..m)
 end
 
 -- Color codes.
