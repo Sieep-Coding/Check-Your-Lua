@@ -35,7 +35,7 @@ View the [source file.](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main
 - Colored output for better readability.
 - Displays execution time and performance metrics.
 - Excellent logging capabilities.
-- Easily run tests using `make`, `bash`, or a `Dockerfile`.
+- Easily run tests using `make` or `bash`.
 - Licensed under the Unlicense for maximum freedom.
 - Extensive [documentation](https://sieep-coding.github.io/cyl-docs/) available.
 
