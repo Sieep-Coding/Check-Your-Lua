@@ -1,5 +1,8 @@
 # Check Yor Lua 🔎 The Minimal Testing Framework
 
+> [!WARNING]
+> Work in Progress. This library is not ready for usage. ⚠️
+
 A single-file, minimal Lua testing framework. 
 
 Portable and easy to run.
