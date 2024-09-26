@@ -11,6 +11,8 @@ After trying various testing frameworks, I decided to create my own.
 
 ![License: UNLICENSE](https://img.shields.io/badge/License-UNLICENSE-blue.svg)
 
+[![asciicast](https://asciinema.org/a/qz1efJAuVhYQTyzAC40kEQ6OB.svg)](https://asciinema.org/a/qz1efJAuVhYQTyzAC40kEQ6OB)
+
 # Documentation
 
 Access the documentation [here](https://sieep-coding.github.io/cyl-docs/).

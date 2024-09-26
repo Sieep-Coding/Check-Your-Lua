@@ -214,7 +214,7 @@ function checkyourlua.it(name, func, enabled)
             testname(name)
             io_write('\n')
         else -- Show just a character hinting that the test was skipped.
-            local o = (checkyourlua.utf8term and checkyourlua.color) and quiet_o_char or 'o'
+            local o = (checkyourlua.utf8term and checkyourlua.color) and quiet_o_char or ' o '
             io_write(colors.yellow, o, colors_reset)
         end
         skipped = skipped + 1
@@ -259,7 +259,7 @@ function checkyourlua.it(name, func, enabled)
         io_write('\n')
     else
         if success then -- Show just a character hinting that the test succeeded.
-            local o = (checkyourlua.utf8term and checkyourlua.color) and quiet_o_char or 'o'
+            local o = (checkyourlua.utf8term and checkyourlua.color) and quiet_o_char or ' o '
             io_write(colors.green, o, colors_reset)
         else -- Show complete test name on failure.
             io_write(last_succeeded and '\n' or '',
