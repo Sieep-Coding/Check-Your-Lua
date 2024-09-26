@@ -134,16 +134,30 @@ function checkyourlua.describe(name, func)
             cyl_start = start
         end
     end
-
     --Setup block variable
     level = level + 1
     names[level] = name
     --run it
     func()
     afters[level] = nil
-    befores[level = nil]
-
-end
+    befores[level] = nil
+    level = level - 1
+    -- Pretty print statistics for top level describe block.
+    if level == 0 and not checkyourlua.quiet and (successes > 0 or failures > 0) then
+      local io_write = io.write
+      local colors_reset, colors_green = colors.reset, colors.green
+      io_write(failures == 0 and colors_green or colors.red, '[====] ',
+               colors.magenta, name, colors_reset, ' | ',
+               colors_green, successes, colors_reset, ' successes / ')
+      if skipped > 0 then
+        io_write(colors.yellow, skipped, colors_reset, ' skipped / ')
+      end
+      if failures > 0 then
+        io_write(colors.red, failures, colors_reset, ' failures / ')
+      end
+      io_write(colors.bright, string.format('%.6f', checkyourlua.seconds() - start), colors_reset, ' seconds\n')
+    end
+  end
 
 function checkyourlua.report()
     local now = checkyourlua.seconds()
