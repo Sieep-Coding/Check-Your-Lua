@@ -109,9 +109,17 @@ function checkyourlua.parseargs(arg)
         if opt:find('^%-%-filter') then
             name = 'filter'
             value = opt:match('^%-%-filter%=(.*)$')
+        elseif opt:find('^%-%-no%-[a-z0-9-]+$') then
+            name = opt:match('^%-%-no%-([a-z0-9-]+)$'):gsub('-','_')
+            value = false
+        elseif opt:find('^%-%-[a-z0-9-]+$') then
+            name = opt:match('^%-%-([a-z0-9-]+)$'):gsub('-','_')
+            value = true
+        end
+        if value ~= nil and checkyourlua[name] ~= nil and (type(checkyourlua[name]) == "boolean" or type(checkyourlua[name]) == "string") then
+            checkyourlua[name] = value
         end
     end
-end
 end
 
 function checkyourlua.report()
