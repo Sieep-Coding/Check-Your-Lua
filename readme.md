@@ -21,6 +21,8 @@ Access the documentation [here](https://sieep-coding.github.io/cyl-docs/).
 
 ![](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/assets/passing.png)
 
+![](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/assets/output.png)
+
 ## Features
 
 View the [source file.](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/checkyour.lua)
