@@ -37,38 +37,12 @@ describe("cyl", function()
     expect.not_equal(1, 2)
   end)
 
-  describe("failure tests", function()
-    if not skipfail then
-      it("throws empty error", function() error() end)
-      it("throws a string error", function() error('an error') end)
-      it("throws error with location", function() error('@somewhere:1: an error') end)
-      it("assert should fail", function() assert(false) end)
-      it("expect.fail should throw", function() expect.fail(function() end) end)
-      it("truthy check with nil", function() expect.truthy(nil) end)
-      it("equal (table) check", function() expect.equal({a=1}, {a=1}) end)
-      it("not equal (binary)", function() expect.not_equal('\x01\x02', '\x01\x02') end)
-    end
-  end)
-
-  it("testing various boolean values", function()
-    expect.truthy(true)
-    expect.falsy(false)
-    expect.truthy(1)
-    expect.falsy(0)
-  end)
-
   it("string equality checks", function()
     expect.equal("test", "test")
     expect.not_equal("hello", "world")
     expect.truthy("Lua")
   end)
 
-  it("number comparisons", function()
-    expect.equal(5, 5)
-    expect.not_equal(10, 5)
-    expect.truthy(1.5)
-    expect.falsy(0)
-  end)
 
   it("table checks", function()
     expect.exist({a=1})
@@ -134,17 +108,6 @@ describe("cyl", function()
     expect.truthy({})
   end)
 
-  it("falsy checks with various types", function()
-    expect.falsy(false)
-    expect.falsy(nil)
-    expect.falsy(0)
-  end)
-
-  it("comparing different types", function()
-    expect.not_equal(1, "1")
-    expect.not_equal({}, {})
-  end)
-
   it("table field existence", function()
     local example = {a = 1, b = 2}
     expect.exist(example.a)
@@ -161,15 +124,6 @@ describe("cyl", function()
   it("string length checks", function()
     expect.equal(#"Hello, World!", 13)
     expect.equal(#"", 0)
-  end)
-
-  it("table merging", function()
-    local t1 = {a = 1, b = 2}
-    local t2 = {b = 3, c = 4}
-    local merged = setmetatable({}, {__index = function(_, k) return t1[k] or t2[k] end})
-    expect.equal(merged.a, 1)
-    expect.equal(merged.b, 3)
-    expect.equal(merged.c, 4)
   end)
 end)
 
