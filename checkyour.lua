@@ -92,8 +92,14 @@ local checkyourlua = {
     quiet = getboolenv('CYL_QUIET', false),
     --- Whether a traceback must be shown on test failures. True by default.
     show_traceback = getboolenv('CYL_SHOW_TRACEBACK', true),
+     --- Whether the error description of a test failure should be shown. True by default.
+    show_error = getboolenv('CYL_SHOW_ERROR', true),
+    --- Whether test suite should exit on first test failure. False by default.
+    stop_on_fail = getboolenv('CYL_STOP_ON_FAIL', false),
     --- Whether we can print UTF-8 characters to the terminal. True by default when supported.
     utf8term = getboolenv('CYL_UTF8TERM', is_utf8term()),
+    --- A string with a lua pattern to filter tests. Nil by default.
+    filter = os.getenv('LESTER_FILTER') or '',
     --- Function to retrieve time in seconds with milliseconds precision, `os.clock` by default.
     seconds = os.clock,
 }
@@ -373,35 +379,35 @@ end
 function expect.not_fail(func)
     local ok, err = pcall(func)
     if not ok then
-        error('expected function to not fail\ngot error:\n' .. expect.tohumanstring(err), 2)
+        error('expected function to not fail\ngot error:\n' .. expect.tohstring(err), 2)
     end
 end
 
 --- Check if a value is not `nil`.
 function expect.exist(v)
     if v == nil then
-        error('expected value to exist\ngot:\n' .. expect.tohumanstring(v), 2)
+        error('expected value to exist\ngot:\n' .. expect.tohstring(v), 2)
     end
 end
 
 --- Check if a value is `nil`.
 function expect.not_exist(v)
     if v ~= nil then
-        error('expected value to not exist\ngot:\n' .. expect.tohumanstring(v), 2)
+        error('expected value to not exist\ngot:\n' .. expect.tohstring(v), 2)
     end
 end
 
 --- Check if an expression is evaluates to `true`.
 function expect.truthy(v)
     if not v then
-        error('expected expression to be true\ngot:\n' .. expect.tohumanstring(v), 2)
+        error('expected expression to be true\ngot:\n' .. expect.tohstring(v), 2)
     end
 end
 
 --- Check if an expression is evaluates to `false`.
 function expect.falsy(v)
     if v then
-        error('expected expression to be false\ngot:\n' .. expect.tohumanstring(v), 2)
+        error('expected expression to be false\ngot:\n' .. expect.tohstring(v), 2)
     end
 end
 
@@ -445,7 +451,7 @@ function expect.strict_eq(t1, t2, name)
     if t1type == 'table' then
         if getmetatable(t1) ~= getmetatable(t2) then
             return false, string.format("expected metatables to be equal for %s\nfirst: %s\nsecond: %s",
-                name, expect.tohumanstring(t1), expect.tohumanstring(t2))
+                name, expect.tohstring(t1), expect.tohstring(t2))
         end
         for k, v1 in pairs(t1) do
             local ok, err = expect.strict_eq(v1, t2[k], name .. strict_eq_key_suffix(k))
@@ -461,7 +467,7 @@ function expect.strict_eq(t1, t2, name)
         end
     elseif t1 ~= t2 then
         return false, string.format("expected values to be equal for %s\nfirst:\n%s\nsecond:\n%s",
-            name, expect.tohumanstring(t1), expect.tohumanstring(t2))
+            name, expect.tohstring(t1), expect.tohstring(t2))
     end
     return true
 end

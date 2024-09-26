@@ -6,7 +6,7 @@ local describe, it, expect = cyl.describe, cyl.it, cyl.expect
 local skipfail = os.getenv('CYL_TEST_SKIP_FAIL') == 'true'
 
 -- Parse any arguments passed for test running (if applicable in your framework)
-cyl.parse_args()
+cyl.parseargs()
 
 -- Begin test suite description
 describe("cyl", function()
@@ -155,5 +155,7 @@ cyl.report()
 
 -- If skipfail is true, exit after reporting
 if skipfail then
-  cyl.exit()
+    cyl.exit()
+else
+    print("Skipping cyl.exit() since it's not defined.")
 end
