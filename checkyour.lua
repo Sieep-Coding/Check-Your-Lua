@@ -331,12 +331,14 @@ function checkyourlua.report()
     local now = checkyourlua.seconds()
     local colors_reset = colors.reset
     io.write(
-        colors.green, total_successes, colors_reset, 'successes / ',
-        colors.yellow, total_skipped, colors_reset, 'skipped / ',
-        colors.red, total_failures, colors_reset, 'failures / ',
+        colors.green, total_successes, colors_reset, ' successes / ',
+        colors.yellow, total_skipped, colors_reset, ' skipped / ',
+        colors.red, total_failures, colors_reset, ' failures / ',
         colors.bright, string.format('%.6f', now - (cyl_start or now)), colors_reset, ' seconds\n'
     )
     io.flush()
+    local exit_code = results.failed > 0 and 1 or 0
+    exitwithCode(exit_code)
     return total_failures == 0
 end
 
@@ -483,7 +485,7 @@ end
 --- Check if two values are not equal.
 function expect.not_equal(v1, v2)
     if expect.strict_eq(v1, v2) then
-        local v1s, v2s = expect.tohumanstring(v1), expect.tohumanstring(v2)
+        local v1s, v2s = expect.tohstring(v1), expect.tohstring(v2)
         error('expected values to be not equal\nfirst value:\n' .. v1s .. '\nsecond value:\n' .. v2s, 2)
     end
 end
