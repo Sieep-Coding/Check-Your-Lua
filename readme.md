@@ -1,13 +1,13 @@
-# Check Yor Lua 🔎 The Minimal Testing Framework
+# Check Your Lua 🔎 The Minimal Testing Framework
 
 > [!WARNING]
 > Work in Progress. This library is not ready for usage. ⚠️
 
-A single-file, minimal Lua testing framework. 
+A single-file, minimal Lua testing framework designed for simplicity and ease of use.
 
 Portable and easy to run.
 
-I didn't like any testing frameworks so I wrote my own.
+After trying various testing frameworks, I decided to create my own.
 
 ![License: UNLICENSE](https://img.shields.io/badge/License-UNLICENSE-blue.svg)
 
@@ -21,17 +21,17 @@ Access the documentation [here](https://sieep-coding.github.io/cyl-docs/).
 
 ## Features
 
-View the [file.](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/checkyour.lua)
+View the [source file.](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/checkyour.lua)
 
-- Single file, efficient and portable.
-- Lua 5.1+ and beyond supported.
-- Zero Dependencies.
-- Colored Output.
-- Shows time and performance.
-- Excellent logging.
-- Run with `make`, `bash`, or a `Dockerfile`.
-- Unlicense license.
-- Extensive [documentation](https://sieep-coding.github.io/cyl-docs/).
+- Single file, efficient, and portable.
+- Compatible with Lua 5.1 and above.
+- Zero dependencies for easy integration.
+- Colored output for better readability.
+- Displays execution time and performance metrics.
+- Excellent logging capabilities.
+- Easily run tests using `make`, `bash`, or a `Dockerfile`.
+- Licensed under the Unlicense for maximum freedom.
+- Extensive [documentation](https://sieep-coding.github.io/cyl-docs/) available.
 
 ## Build Instructions
 
