@@ -17,6 +17,46 @@ After trying various testing frameworks, I decided to create my own.
 
 Access the documentation [here](https://sieep-coding.github.io/cyl-docs/).
 
+Just drop `checkyour.lua` in your project and then `require` it. 
+
+It will return a table with its functionality.
+
+I will be adding it to [Luarocks](https://luarocks.org/) soon.
+
+### Example
+
+```lua
+local checkyourlua = require 'checkyourlua'
+local describe, it, expect = checkyourlua.describe, checkyourlua.it, checkyourlua.expect
+
+-- Customize checkyourlua configuration.
+checkyourlua.show_traceback = false
+
+describe('my project', function()
+  checkyourlua.before(function()
+    -- This function is run before every test.
+  end)
+
+  describe('module1', function() -- Describe blocks can be nested.
+    it('feature1', function()
+      expect.equal('something', 'something') -- Pass.
+    end)
+
+    it('feature2', function()
+      expect.truthy(false) -- Fail.
+    end)
+
+    local feature3_test_enabled = false
+    it('feature3', function() -- This test will be skipped.
+      expect.truthy(false) -- Fail.
+    end, feature3_test_enabled)
+  end)
+end)
+
+checkyourlua.report() -- Print overall statistic of the tests run.
+checkyourlua.exit() -- Exit with success if all tests passed.
+```
+
 ## See It In Action
 
 ![](https://github.com/Sieep-Coding/Check-Your-Lua/blob/main/assets/simple.png)
@@ -53,27 +93,29 @@ make build
 make test
 ```
 
+3. **Show Test Coverage**:
+ ```bash
+make coverage
+```
+
 ### `run.sh`
-1. **Build the Project**:
+1. **Make Bash Script an Executable**
+```bash   
+chmod +x bash.sh
+```
+2. **Build the Project**:
 ```bash
 ./run.sh build
 ```
 
-2. **Run Test**:
+3. **Run Test**:
  ```bash
 ./run.sh test
 ```
 
-### Dockerfile
-1. **Build the Project**:
-```bash
-docker build -t check-your-lua .
-```
-
-2. **Run Test**:
+4. **Show Test Coverage**:
  ```bash
-docker run --rm check-your-lua lua tests/tests.lua  # Replace test_file.lua with your actual test file
-
+./run.sh coverage
 ```
 
 ## License
