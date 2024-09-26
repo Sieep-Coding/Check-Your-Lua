@@ -17,6 +17,7 @@ function log.error(m)
     print('[ERROR] ' .. m)
 end
 
+local quiet_o_char = string.char(226, 151, 143)
 -- Color codes.
 local color_codes = {
     reset = string.char(27) .. '[0m',
@@ -160,13 +161,8 @@ function checkyourlua.describe(name, func)
     end
 end
 
---get traceack for any error
-local function xpcall_handler(err)
-    return debug.traceback(tostring(err), 2)
-end
-
 --print error line
-local function errorline(err)
+local function error_line(err)
     local info = debug.getinfo(3)
     local io_write = io.write
     local colors_reset = colors.reset
@@ -185,16 +181,145 @@ local function errorline(err)
     io_write(')')
 end
 
-
 --print test name
 local function testname(name)
     local io_write = io.write
     local colors_reset = colors.reset
-    for _,descname in ipairs(names) do
-      io_write(colors.magenta, descname, colors_reset, ' | ')
+    for _, descname in ipairs(names) do
+        io_write(colors.magenta, descname, colors_reset, ' | ')
     end
     io_write(colors.bright, name, colors_reset)
-  end
+end
+
+function checkyourlua.it(name, func, enabled)
+    -- Skip the test silently if it does not match the filter.
+    if checkyourlua.filter then
+        local fullname = table.concat(names, ' | ') .. ' | ' .. name
+        if not fullname:match(checkyourlua.filter) then
+            return
+        end
+    end
+    local io_write = io.write
+    local colors_reset = colors.reset
+    -- Skip the test if it's disabled, while displaying a message
+    if enabled == false then
+        if not checkyourlua.quiet then
+            io_write(colors.yellow, '[SKIP] ', colors_reset)
+            testname(name)
+            io_write('\n')
+        else -- Show just a character hinting that the test was skipped.
+            local o = (checkyourlua.utf8term and checkyourlua.color) and quiet_o_char or 'o'
+            io_write(colors.yellow, o, colors_reset)
+        end
+        skipped = skipped + 1
+        total_skipped = total_skipped + 1
+        return
+    end
+    -- Execute before handlers.
+    for _, levelbefores in pairs(befores) do
+        for _, beforefn in ipairs(levelbefores) do
+            beforefn(name)
+        end
+    end
+    -- Run the test, capturing errors if any.
+    local success, err
+    if checkyourlua.show_traceback then
+        success, err = xpcall(func, error_handler)
+    else
+        success, err = pcall(func)
+        if not success and err then
+            err = tostring(err)
+        end
+    end
+    -- Count successes and failures.
+    if success then
+        successes = successes + 1
+        total_successes = total_successes + 1
+    else
+        failures = failures + 1
+        total_failures = total_failures + 1
+    end
+    -- Print the test run.
+    if not checkyourlua.quiet then -- Show test status and complete test name.
+        if success then
+            io_write(colors.green, '[PASS] ', colors_reset)
+        else
+            io_write(colors.red, '[FAIL] ', colors_reset)
+        end
+        testname(name)
+        if not success then
+            error_line(err)
+        end
+        io_write('\n')
+    else
+        if success then -- Show just a character hinting that the test succeeded.
+            local o = (checkyourlua.utf8term and checkyourlua.color) and quiet_o_char or 'o'
+            io_write(colors.green, o, colors_reset)
+        else -- Show complete test name on failure.
+            io_write(last_succeeded and '\n' or '',
+                colors.red, '[FAIL] ', colors_reset)
+            testname(name)
+            error_line(err)
+            io_write('\n')
+        end
+    end
+    -- Print error message, colorizing its output if possible.
+    if err and checkyourlua.show_error then
+        if checkyourlua.color then
+            local errfile, errline, errmsg, rest = err:match('^([^:\n]+):(%d+): ([^\n]+)(.*)')
+            if errfile and errline and errmsg and rest then
+                io_write(colors.blue, errfile, colors_reset,
+                    ':', colors.bright, errline, colors_reset, ': ')
+                if errmsg:match('^%w([^:]*)$') then
+                    io_write(colors.red, errmsg, colors_reset)
+                else
+                    io_write(errmsg)
+                end
+                err = rest
+            end
+        end
+        io_write(err, '\n\n')
+    end
+    io.flush()
+    -- Stop on failure.
+    if not success and checkyourlua.stop_on_fail then
+        if checkyourlua.quiet then
+            io_write('\n')
+            io.flush()
+        end
+        checkyourlua.exit()
+    end
+    -- Execute after handlers.
+    for _, levelafters in pairs(afters) do
+        for _, afterfn in ipairs(levelafters) do
+            afterfn(name)
+        end
+    end
+    last_succeeded = success
+end
+
+--- Set a function that is called before every test inside a describe block.
+-- A single string containing the name of the test about to be run will be passed to `func`.
+function checkyourlua.before(func)
+    local levelbefores = befores[level]
+    if not levelbefores then
+        levelbefores = {}
+        befores[level] = levelbefores
+    end
+    levelbefores[#levelbefores + 1] = func
+end
+
+--- Set a function that is called after every test inside a describe block.
+-- A single string containing the name of the test that was finished will be passed to `func`.
+-- The function is executed independently if the test passed or failed.
+function checkyourlua.after(func)
+    local levelafters = afters[level]
+    if not levelafters then
+        levelafters = {}
+        afters[level] = levelafters
+    end
+    levelafters[#levelafters + 1] = func
+end
 
 function checkyourlua.report()
     local now = checkyourlua.seconds()
@@ -244,21 +369,120 @@ function expect.fail(func, expected)
     return true
 end
 
--- Example test
-log.info('Check Your Lua has started.')
-local function testExample()
-    expect.fail(function() error("Test failure!") end, "Test failure!")
-    expect.fail(function() error("Test failure!") end, "Test failure!")
-    expect.fail(function() error("Test failure!") end, "Test failure!")
-    expect.fail(function() error("Test failure!") end, "Test failure!")
-    expect.fail(function() error("Test failure!") end, "Test failure!")
-    expect.fail(function() error("Test failure!") end, "Test failure!")
-    expect.fail(function() error("Test failure!") end, "Test failure!")
+--- Check if a function does not fail with a error.
+function expect.not_fail(func)
+    local ok, err = pcall(func)
+    if not ok then
+        error('expected function to not fail\ngot error:\n' .. expect.tohumanstring(err), 2)
+    end
 end
 
--- Run tests
-testExample()
-reportResults()
+--- Check if a value is not `nil`.
+function expect.exist(v)
+    if v == nil then
+        error('expected value to exist\ngot:\n' .. expect.tohumanstring(v), 2)
+    end
+end
+
+--- Check if a value is `nil`.
+function expect.not_exist(v)
+    if v ~= nil then
+        error('expected value to not exist\ngot:\n' .. expect.tohumanstring(v), 2)
+    end
+end
+
+--- Check if an expression is evaluates to `true`.
+function expect.truthy(v)
+    if not v then
+        error('expected expression to be true\ngot:\n' .. expect.tohumanstring(v), 2)
+    end
+end
+
+--- Check if an expression is evaluates to `false`.
+function expect.falsy(v)
+    if v then
+        error('expected expression to be false\ngot:\n' .. expect.tohumanstring(v), 2)
+    end
+end
+
+--- Returns raw tostring result for a value.
+local function rawtostring(v)
+    local mt = getmetatable(v)
+    if mt then
+        setmetatable(v, nil)
+    end
+    local s = tostring(v)
+    if mt then
+        setmetatable(v, mt)
+    end
+    return s
+end
+
+-- Returns key suffix for a string_eq table key.
+local function strict_eq_key_suffix(k)
+    if type(k) == 'string' then
+        if k:find('^[a-zA-Z_][a-zA-Z0-9]*$') then -- string is a lua field
+            return '.' .. k
+        elseif k:find '[^ -~\n\t]' then       -- string contains non printable ASCII
+            return '["' .. k:gsub('.', function(c) return string.format('\\x%02X', c:byte()) end) .. '"]'
+        else
+            return '["' .. k .. '"]'
+        end
+    else
+        return string.format('[%s]', rawtostring(k))
+    end
+end
+
+--- Compare if two values are equal, considering nested tables.
+function expect.strict_eq(t1, t2, name)
+    if rawequal(t1, t2) then return true end
+    name = name or 'value'
+    local t1type, t2type = type(t1), type(t2)
+    if t1type ~= t2type then
+        return false, string.format("expected types to be equal for %s\nfirst: %s\nsecond: %s",
+            name, t1type, t2type)
+    end
+    if t1type == 'table' then
+        if getmetatable(t1) ~= getmetatable(t2) then
+            return false, string.format("expected metatables to be equal for %s\nfirst: %s\nsecond: %s",
+                name, expect.tohumanstring(t1), expect.tohumanstring(t2))
+        end
+        for k, v1 in pairs(t1) do
+            local ok, err = expect.strict_eq(v1, t2[k], name .. strict_eq_key_suffix(k))
+            if not ok then
+                return false, err
+            end
+        end
+        for k, v2 in pairs(t2) do
+            local ok, err = expect.strict_eq(v2, t1[k], name .. strict_eq_key_suffix(k))
+            if not ok then
+                return false, err
+            end
+        end
+    elseif t1 ~= t2 then
+        return false, string.format("expected values to be equal for %s\nfirst:\n%s\nsecond:\n%s",
+            name, expect.tohumanstring(t1), expect.tohumanstring(t2))
+    end
+    return true
+end
+
+--- Check if two values are equal.
+function expect.equal(v1, v2)
+    local ok, err = expect.strict_eq(v1, v2)
+    if not ok then
+        error(err, 2)
+    end
+end
+
+--- Check if two values are not equal.
+function expect.not_equal(v1, v2)
+    if expect.strict_eq(v1, v2) then
+        local v1s, v2s = expect.tohumanstring(v1), expect.tohumanstring(v2)
+        error('expected values to be not equal\nfirst value:\n' .. v1s .. '\nsecond value:\n' .. v2s, 2)
+    end
+end
+
+return checkyourlua
 
 --[[
 
