@@ -122,6 +122,29 @@ function checkyourlua.parseargs(arg)
     end
 end
 
+
+function checkyourlua.describe(name, func)
+    --Get a start time
+    if level == 0 then 
+        failures = 0
+        successes = 0
+        skipped = 0
+        start = checkyourlua.seconds()
+        if not cyl_start then
+            cyl_start = start
+        end
+    end
+
+    --Setup block variable
+    level = level + 1
+    names[level] = name
+    --run it
+    func()
+    afters[level] = nil
+    befores[level = nil]
+
+end
+
 function checkyourlua.report()
     local now = checkyourlua.seconds()
     local colors_reset = colors.reset
