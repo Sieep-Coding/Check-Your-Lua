@@ -10,11 +10,11 @@ See bottom for license.
 
 local log = {}
 function log.info(m)
-    print('[INFO] '..m)
+    print('[INFO] ' .. m)
 end
 
 function log.error(m)
-    print('[ERROR] '..m)
+    print('[ERROR] ' .. m)
 end
 
 -- Color codes.
@@ -28,7 +28,7 @@ local color_codes = {
     magenta = string.char(27) .. '[35m',
 }
 
-    -- Variables used internally for the CYL state.
+-- Variables used internally for the CYL state.
 local cyl_start = nil
 local last_succeeded = false
 local level = 0
@@ -42,7 +42,7 @@ local start = 0
 local befores = {}
 local afters = {}
 local names = {}
-local results = {passed=0, failed=0, skipped=0}
+local results = { passed = 0, failed = 0, skipped = 0 }
 
 local cyl_start = os.clock()
 
@@ -58,7 +58,7 @@ local function reportResults()
     io.flush()
 end
 
-    -- checks for terminal support for UTF-8
+-- checks for terminal support for UTF-8
 local function is_utf8term()
     local lang = os.getenv('lang')
     return (lang and lang:lower():match('utf%-?8$')) and true or false
@@ -85,21 +85,23 @@ end
 
 --The Check Your Lua Module
 local checkyourlua = {
-        --- Whether the output should  be colorized. True by default.
-        color = getboolenv('CYL_COLOR', true),
-        --- Whether lines of passed tests should not be printed. False by default.
-        quiet = getboolenv('CYL_QUIET', false),
-        --- Whether a traceback must be shown on test failures. True by default.
-        show_traceback = getboolenv('CYL_SHOW_TRACEBACK', true),
-        --- Whether we can print UTF-8 characters to the terminal. True by default when supported.
-        utf8term = getboolenv('CYL_UTF8TERM', is_utf8term()),
-        --- Function to retrieve time in seconds with milliseconds precision, `os.clock` by default.
-        seconds = os.clock,
-    }
+    --- Whether the output should  be colorized. True by default.
+    color = getboolenv('CYL_COLOR', true),
+    --- Whether lines of passed tests should not be printed. False by default.
+    quiet = getboolenv('CYL_QUIET', false),
+    --- Whether a traceback must be shown on test failures. True by default.
+    show_traceback = getboolenv('CYL_SHOW_TRACEBACK', true),
+    --- Whether we can print UTF-8 characters to the terminal. True by default when supported.
+    utf8term = getboolenv('CYL_UTF8TERM', is_utf8term()),
+    --- Function to retrieve time in seconds with milliseconds precision, `os.clock` by default.
+    seconds = os.clock,
+}
 
-local colors = setmetatable({}, {__index = function (_, key)
-     return checkyourlua.color and color_codes[key] or ''
-end})
+local colors = setmetatable({}, {
+    __index = function(_, key)
+        return checkyourlua.color and color_codes[key] or ''
+    end
+})
 
 checkyourlua.color = colors
 
@@ -110,10 +112,10 @@ function checkyourlua.parseargs(arg)
             name = 'filter'
             value = opt:match('^%-%-filter%=(.*)$')
         elseif opt:find('^%-%-no%-[a-z0-9-]+$') then
-            name = opt:match('^%-%-no%-([a-z0-9-]+)$'):gsub('-','_')
+            name = opt:match('^%-%-no%-([a-z0-9-]+)$'):gsub('-', '_')
             value = false
         elseif opt:find('^%-%-[a-z0-9-]+$') then
-            name = opt:match('^%-%-([a-z0-9-]+)$'):gsub('-','_')
+            name = opt:match('^%-%-([a-z0-9-]+)$'):gsub('-', '_')
             value = true
         end
         if value ~= nil and checkyourlua[name] ~= nil and (type(checkyourlua[name]) == "boolean" or type(checkyourlua[name]) == "string") then
@@ -122,10 +124,9 @@ function checkyourlua.parseargs(arg)
     end
 end
 
-
 function checkyourlua.describe(name, func)
     --Get a start time
-    if level == 0 then 
+    if level == 0 then
         failures = 0
         successes = 0
         skipped = 0
@@ -144,34 +145,69 @@ function checkyourlua.describe(name, func)
     level = level - 1
     -- Pretty print statistics for top level describe block.
     if level == 0 and not checkyourlua.quiet and (successes > 0 or failures > 0) then
-      local io_write = io.write
-      local colors_reset, colors_green = colors.reset, colors.green
-      io_write(failures == 0 and colors_green or colors.red, '[====] ',
-               colors.magenta, name, colors_reset, ' | ',
-               colors_green, successes, colors_reset, ' successes / ')
-      if skipped > 0 then
-        io_write(colors.yellow, skipped, colors_reset, ' skipped / ')
-      end
-      if failures > 0 then
-        io_write(colors.red, failures, colors_reset, ' failures / ')
-      end
-      io_write(colors.bright, string.format('%.6f', checkyourlua.seconds() - start), colors_reset, ' seconds\n')
+        local io_write = io.write
+        local colors_reset, colors_green = colors.reset, colors.green
+        io_write(failures == 0 and colors_green or colors.red, '[====] ',
+            colors.magenta, name, colors_reset, ' | ',
+            colors_green, successes, colors_reset, ' successes / ')
+        if skipped > 0 then
+            io_write(colors.yellow, skipped, colors_reset, ' skipped / ')
+        end
+        if failures > 0 then
+            io_write(colors.red, failures, colors_reset, ' failures / ')
+        end
+        io_write(colors.bright, string.format('%.6f', checkyourlua.seconds() - start), colors_reset, ' seconds\n')
     end
+end
+
+--get traceack for any error
+local function xpcall_handler(err)
+    return debug.traceback(tostring(err), 2)
+end
+
+--print error line
+local function errorline(err)
+    local info = debug.getinfo(3)
+    local io_write = io.write
+    local colors_reset = colors.reset
+    local short_src, currentline = info.short_src, info.currentline
+    io_write(' (', colors.blue, short_src, colors_reset,
+        ':', colors.bright, currentline, colors_reset)
+    if err and checkyourlua.show_traceback then
+        local fnsrc = short_src .. ':' .. currentline
+        for cap1, cap2 in err:gmatch('\t[^\n:]+:(%d+): in function <([^>]+)>\n') do
+            if cap2 == fnsrc then
+                io_write('/', colors.bright, cap1, colors_reset)
+                break
+            end
+        end
+    end
+    io_write(')')
+end
+
+
+--print test name
+local function testname(name)
+    local io_write = io.write
+    local colors_reset = colors.reset
+    for _,descname in ipairs(names) do
+      io_write(colors.magenta, descname, colors_reset, ' | ')
+    end
+    io_write(colors.bright, name, colors_reset)
   end
 
 function checkyourlua.report()
     local now = checkyourlua.seconds()
     local colors_reset = colors.reset
-    io.write (
-    colors.green, total_successes, colors_reset, 'successes / ',
-    colors.yellow, total_skipped, colors_reset, 'skipped / ',
-    colors.red, total_failures, colors_reset, 'failures / ',
-    colors.bright, string.format('%.6f', now - (cyl_start or now)), colors_reset, ' seconds\n'
-)
-io.flush()
-return total_failures == 0
+    io.write(
+        colors.green, total_successes, colors_reset, 'successes / ',
+        colors.yellow, total_skipped, colors_reset, 'skipped / ',
+        colors.red, total_failures, colors_reset, 'failures / ',
+        colors.bright, string.format('%.6f', now - (cyl_start or now)), colors_reset, ' seconds\n'
+    )
+    io.flush()
+    return total_failures == 0
 end
-
 
 function ExitCYL()
     collectgarbage()
@@ -187,11 +223,11 @@ checkyourlua.expect = expect
 
 function expect.tohstring(v)
     local s = tostring(v)
-    if s:find'[^ -~\n\t]' then
-      return '"'..s:gsub('.', function(c) return string.format('\\x%02X', c:byte()) end)..'"'
+    if s:find '[^ -~\n\t]' then
+        return '"' .. s:gsub('.', function(c) return string.format('\\x%02X', c:byte()) end) .. '"'
     end
     return s
-  end
+end
 
 --check if function fails
 function expect.fail(func, expected)
