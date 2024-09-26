@@ -104,7 +104,7 @@ end})
 checkyourlua.color = colors
 
 function checkyourlua.parseargs(arg)
-    for _, opt in ipairs(argor _G.arg) do
+    for _, opt in ipairs(arg or _G.arg) do
         local name, value
         if opt:find('^%-%-filter') then
             name = 'filter'
