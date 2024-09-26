@@ -103,6 +103,17 @@ end})
 
 checkyourlua.color = colors
 
+function checkyourlua.parseargs(arg)
+    for _, opt in ipairs(argor _G.arg) do
+        local name, value
+        if opt:find('^%-%-filter') then
+            name = 'filter'
+            value = opt:match('^%-%-filter%=(.*)$')
+        end
+    end
+end
+end
+
 function checkyourlua.report()
     local now = checkyourlua.seconds()
     local colors_reset = colors.reset
