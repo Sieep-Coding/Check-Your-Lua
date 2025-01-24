@@ -62,14 +62,18 @@ end
 -- checks for terminal support for UTF-8
 local function is_utf8term()
     local lang = os.getenv('lang')
+    print('OS environment: ' .. lang)
     return (lang and lang:lower():match('utf%-?8$')) and true or false
 end
 
 local function exitwithCode(code)
+    print('Exiting with code ' .. code)
     os.exit(code)
+    return os.exit(code)
 end
 
 local function error_handler(err)
+    print('err: 'debug.traceback(tostring(err), 2))
     return debug.traceback(tostring(err), 2)
 end
 
