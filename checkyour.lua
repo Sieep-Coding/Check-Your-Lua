@@ -99,7 +99,7 @@ local checkyourlua = {
     --- Whether we can print UTF-8 characters to the terminal. True by default when supported.
     utf8term = getboolenv('CYL_UTF8TERM', is_utf8term()),
     --- A string with a lua pattern to filter tests. Nil by default.
-    filter = os.getenv('LESTER_FILTER') or '',
+    filter = os.getenv('CYL_FILTER') or '',
     --- Function to retrieve time in seconds with milliseconds precision, `os.clock` by default.
     seconds = os.clock,
 }
