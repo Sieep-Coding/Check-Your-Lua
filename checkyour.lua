@@ -73,7 +73,7 @@ local function exitwithCode(code)
 end
 
 local function error_handler(err)
-    print('err: 'debug.traceback(tostring(err), 2))
+    print('err: ' .. debug.traceback(tostring(err), 2))
     return debug.traceback(tostring(err), 2)
 end
 
