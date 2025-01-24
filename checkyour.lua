@@ -315,6 +315,24 @@ function checkyourlua.before(func)
     levelbefores[#levelbefores + 1] = func
 end
 
+function checkyourlua.cleanbefores(func)
+    local levelbefores = befores[level]
+    if not levelbefores then
+        return
+    end
+    if levelbefores then
+        for i, beforefn in ipairs(levelbefores) do
+            if beforefn == func then
+                table.remove(levelbefores, i)
+                return
+            end
+            table.remove(levelbefores, i)
+            return
+        end
+    end
+    
+end
+
 --- Set a function that is called after every test inside a describe block.
 -- A single string containing the name of the test that was finished will be passed to `func`.
 -- The function is executed independently if the test passed or failed.
@@ -326,6 +344,20 @@ function checkyourlua.after(func)
     end
     levelafters[#levelafters + 1] = func
 end
+
+function checkyourlua.cleanafter(func)
+    local levelafters = afters[level]
+    if not levelafters then
+        return
+    end
+    for i, afterfn in ipairs(levelafters) do
+        if afterfn == func then
+            table.remove(levelafters, i)
+            return
+        end
+    end
+end
+
     -- Determine whether we're managing before or after functions.
 function checkyourlua.manage(level, func, when)
     local targetTable
