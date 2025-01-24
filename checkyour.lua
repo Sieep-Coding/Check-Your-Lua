@@ -66,11 +66,43 @@ local function is_utf8term()
     return (lang and lang:lower():match('utf%-?8$')) and true or false
 end
 
+--check for linux
+-- Check if the current system is Linux by inspecting the 'linux' environment variable.
+local function is_linux()
+    return os.getenv('linux') and os.getenv('linux'):lower():match('linux$') ~= nil
+end
+
+local function is_windows()
+    local os_name = os.getenv('OS')
+    if os_name and os_name:lower():match('windows') then
+        return true
+    end
+    local handle = io.popen('uname -s')
+    local result
+    if handle then
+        result = handle:read('*a')
+        handle:close()
+    else
+        return false
+    end
+
+    return result:lower():match('windows') ~= nil
+end
+
+
+-- Exit the program with the specified exit code.
 local function exitwithCode(code)
     print('Exiting with code ' .. code)
+    if is_linux() then
+        return
+    end
+    if is_windows() then
+        os.exit(code, true)
+        return
+    end
     os.exit(code)
-    return os.exit(code)
 end
+
 
 local function error_handler(err)
     print('err: ' .. debug.traceback(tostring(err), 2))
