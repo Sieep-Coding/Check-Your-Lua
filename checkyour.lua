@@ -30,7 +30,6 @@ local color_codes = {
 }
 
 -- Variables used internally for the CYL state.
-local cyl_start = nil
 local last_succeeded = false
 local level = 0
 local successes = 0
@@ -46,18 +45,6 @@ local names = {}
 local results = { passed = 0, failed = 0, skipped = 0 }
 
 local cyl_start = os.clock()
-
-local function reportResults()
-    local colors_reset = color_codes.reset
-    io.write(
-        color_codes.blue, "Results: ",
-        color_codes.green, results.passed, colors_reset, " passed / ",
-        color_codes.red, results.failed, colors_reset, " failed / ",
-        color_codes.yellow, results.skipped, colors_reset, " skipped\n"
-    )
-    io.write(color_codes.bright, string.format("Total Time: %.6f seconds\n", os.clock() - cyl_start), colors_reset)
-    io.flush()
-end
 
 -- checks for terminal support for UTF-8
 local function is_utf8term()
