@@ -326,6 +326,21 @@ function checkyourlua.after(func)
     end
     levelafters[#levelafters + 1] = func
 end
+    -- Determine whether we're managing before or after functions.
+function checkyourlua.manage(level, func, when)
+    local targetTable
+    if when == 'before' then
+        targetTable = befores
+    elseif when == 'after' then
+        targetTable = afters
+    else
+        error("Invalid 'when' value. Use 'before' or 'after'.")
+    end
+    if not targetTable[level] then
+        targetTable[level] = {}
+    end
+    table.insert(targetTable[level], func)
+end
 
 function checkyourlua.report()
     local now = checkyourlua.seconds()
