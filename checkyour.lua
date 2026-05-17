@@ -4,521 +4,626 @@ Nick Stambaugh - nickstambaugh@proton.me
 https://github.com/sieep-coding/Check-Your-Lua
 https://nickstambaugh.dev
 
-Public Domain License - See bottom for details.
+Public Domain (Unlicense) - See bottom for details.
+
+INSTALL via LuaRocks:
+  luarocks install checkyour
+
+USAGE:
+  local cyl = require('checkyour')
+  local describe, it, expect = cyl.describe, cyl.it, cyl.expect
+
+  describe("my module", function()
+    it("does the thing", function()
+      expect.equal(1 + 1, 2)
+    end)
+  end)
+
+  cyl.report()
+  cyl.exit()
 ]]
 
+
+local VERSION = "1.0.0"
+
 local log = {}
-function log.info(m)
-    print('[INFO] ' .. m)
-end
+function log.info(m)  print('[INFO] '  .. tostring(m)) end
+function log.error(m) print('[ERROR] ' .. tostring(m)) end
 
-function log.error(m)
-    print('[ERROR] ' .. m)
-end
 
--- UTF-8 quiet character for minimal output mode
-local quiet_o_char = string.char(226, 151, 143)
-
--- ANSI color codes for terminal output
+local ESC = string.char(27)
 local color_codes = {
-    reset = string.char(27) .. '[0m',
-    bright = string.char(27) .. '[1m',
-    red = string.char(27) .. '[31m',
-    green = string.char(27) .. '[32m',
-    yellow = string.char(27) .. '[33m',
-    blue = string.char(27) .. '[34m',
-    magenta = string.char(27) .. '[35m',
+  reset   = ESC .. '[0m',
+  bright  = ESC .. '[1m',
+  red     = ESC .. '[31m',
+  green   = ESC .. '[32m',
+  yellow  = ESC .. '[33m',
+  blue    = ESC .. '[34m',
+  magenta = ESC .. '[35m',
+  cyan    = ESC .. '[36m',
 }
 
--- Internal state management
-local last_succeeded = false
-local level = 0
-local successes = 0
-local total_successes = 0
-local failures = 0
-local total_failures = 0
-local skipped = 0
-local total_skipped = 0
-local start = 0
-local befores = {}
-local afters = {}
-local names = {}
-local results = { passed = 0, failed = 0, skipped = 0 }
-local cyl_start = os.clock()
+-- UTF-8 bullet used in quiet mode
+local QUIET_DOT = string.char(226, 151, 143)
 
--- Platform detection utilities
+
 local function is_utf8term()
-    local lang = os.getenv('LANG') or os.getenv('LC_ALL') or ''
-    return lang:lower():match('utf%-?8$') ~= nil
+  local lang = os.getenv('LANG') or os.getenv('LC_ALL') or ''
+  return lang:lower():match('utf%-?8$') ~= nil
 end
 
 local function is_windows()
-    local os_name = os.getenv('OS')
-    if os_name and os_name:lower():match('windows') then
-        return true
-    end
-    local handle = io.popen('uname -s 2>/dev/null')
-    if not handle then return false end
-    local result = handle:read('*a')
-    handle:close()
-    return result and result:lower():match('windows') ~= nil
+  local os_name = os.getenv('OS') or ''
+  if os_name:lower():match('windows') then return true end
+  local handle = io.popen('uname -s 2>/dev/null')
+  if not handle then return false end
+  local result = handle:read('*a')
+  handle:close()
+  return result and result:lower():match('windows') ~= nil
 end
 
--- Exit handler for cross-platform compatibility
-local function exitwithCode(code)
-    if is_windows() then
-        os.exit(code, true)
-    else
-        os.exit(code)
-    end
+local function exit_with_code(code)
+  if is_windows() then
+    os.exit(code, true)
+  else
+    os.exit(code)
+  end
 end
 
--- Error handler with stack trace
-local function error_handler(err)
-    return debug.traceback(tostring(err), 2)
+
+local function getboolenv(name, default)
+  local v = os.getenv(name)
+  if v == 'true'  then return true  end
+  if v == 'false' then return false end
+  return default
 end
 
--- Parse boolean environment variables with defaults
-local function getboolenv(varname, default)
-    local val = os.getenv(varname)
-    if val == 'true' then return true
-    elseif val == 'false' then return false
-    end
-    return default
-end
 
--- Main CYL module
-local checkyourlua = {
-    color = getboolenv('CYL_COLOR', true),
-    quiet = getboolenv('CYL_QUIET', false),
-    show_traceback = getboolenv('CYL_SHOW_TRACEBACK', true),
-    show_error = getboolenv('CYL_SHOW_ERROR', true),
-    stop_on_fail = getboolenv('CYL_STOP_ON_FAIL', false),
-    utf8term = getboolenv('CYL_UTF8TERM', is_utf8term()),
-    filter = os.getenv('CYL_FILTER') or '',
-    seconds = os.clock,
+local last_succeeded  = false
+local level           = 0
+local successes       = 0
+local total_successes = 0
+local failures        = 0
+local total_failures  = 0
+local skipped         = 0
+local total_skipped   = 0
+local start           = 0
+local befores         = {}
+local afters          = {}
+local names           = {}
+local cyl_start       = os.clock()
+
+
+local cyl = {
+  version        = VERSION,
+  color          = getboolenv('CYL_COLOR',          true),
+  quiet          = getboolenv('CYL_QUIET',           false),
+  show_traceback = getboolenv('CYL_SHOW_TRACEBACK',  true),
+  show_error     = getboolenv('CYL_SHOW_ERROR',      true),
+  stop_on_fail   = getboolenv('CYL_STOP_ON_FAIL',    false),
+  utf8term       = getboolenv('CYL_UTF8TERM',        is_utf8term()),
+  filter         = os.getenv('CYL_FILTER') or '',
+  seconds        = os.clock,
 }
 
--- Color wrapper with conditional output
+-- Color proxy: returns empty string when colors disabled
 local colors = setmetatable({}, {
-    __index = function(_, key)
-        return checkyourlua.color and color_codes[key] or ''
-    end
+  __index = function(_, key)
+    return cyl.color and color_codes[key] or ''
+  end
 })
+cyl.color = colors   -- expose for tests that inspect it
 
-checkyourlua.color = colors
 
--- Parse command-line arguments
-function checkyourlua.parseargs(arg)
-    arg = arg or _G.arg
-    for _, opt in ipairs(arg) do
-        local name, value
-        if opt:find('^%-%-filter') then
-            name = 'filter'
-            value = opt:match('^%-%-filter%=(.*)$')
-        elseif opt:find('^%-%-no%-[a-z0-9-]+$') then
-            name = opt:match('^%-%-no%-([a-z0-9-]+)$'):gsub('-', '_')
-            value = false
-        elseif opt:find('^%-%-[a-z0-9-]+$') then
-            name = opt:match('^%-%-([a-z0-9-]+)$'):gsub('-', '_')
-            value = true
-        end
-        if value ~= nil and checkyourlua[name] ~= nil then
-            local t = type(checkyourlua[name])
-            if t == 'boolean' or t == 'string' then
-                checkyourlua[name] = value
-            end
-        end
+---Parse command-line arguments from `arg` (or a custom table).
+---Supports: --flag, --no-flag, --filter=pattern
+---@param arg_table table|nil defaults to _G.arg
+function cyl.parseargs(arg_table)
+  arg_table = arg_table or _G.arg or {}
+  for _, opt in ipairs(arg_table) do
+    local name, value
+    if opt:find('^%-%-filter=') then
+      name  = 'filter'
+      value = opt:match('^%-%-filter%=(.*)$')
+    elseif opt:find('^%-%-no%-[a-z0-9-]+$') then
+      name  = opt:match('^%-%-no%-([a-z0-9-]+)$'):gsub('-', '_')
+      value = false
+    elseif opt:find('^%-%-[a-z0-9-]+$') then
+      name  = opt:match('^%-%-([a-z0-9-]+)$'):gsub('-', '_')
+      value = true
     end
+    if value ~= nil and cyl[name] ~= nil then
+      local t = type(cyl[name])
+      if t == 'boolean' or t == 'string' then
+        cyl[name] = value
+      end
+    end
+  end
 end
 
--- Describe block for organizing tests
-function checkyourlua.describe(name, func)
-    if level == 0 then
-        failures = 0
-        successes = 0
-        skipped = 0
-        start = checkyourlua.seconds()
-        if not cyl_start then cyl_start = start end
-    end
-    
-    level = level + 1
-    names[level] = name
-    func()
-    afters[level] = nil
-    befores[level] = nil
-    level = level - 1
-    
-    -- Print summary for top-level describe blocks
-    if level == 0 and not checkyourlua.quiet and (successes > 0 or failures > 0) then
-        local io_write = io.write
-        io_write(failures == 0 and colors.green or colors.red, '[====] ',
-            colors.magenta, name, colors.reset, ' | ',
-            colors.green, successes, colors.reset, ' passed / ')
-        if skipped > 0 then
-            io_write(colors.yellow, skipped, colors.reset, ' skipped / ')
-        end
-        if failures > 0 then
-            io_write(colors.red, failures, colors.reset, ' failed / ')
-        end
-        io_write(colors.bright, string.format('%.6f', checkyourlua.seconds() - start), 
-            colors.reset, 's\n')
-    end
+
+local function error_handler(err)
+  return debug.traceback(tostring(err), 2)
 end
 
--- Print error location information
-local function error_line(err)
-    local info = debug.getinfo(3)
-    local io_write = io.write
-    local short_src, currentline = info.short_src, info.currentline
-    io_write(' (', colors.blue, short_src, colors.reset,
-        ':', colors.bright, currentline, colors.reset)
-    if err and checkyourlua.show_traceback then
-        local fnsrc = short_src .. ':' .. currentline
-        for cap1, cap2 in err:gmatch('\t[^\n:]+:(%d+): in function <([^>]+)>\n') do
-            if cap2 == fnsrc then
-                io_write('/', colors.bright, cap1, colors.reset)
-                break
-            end
-        end
-    end
-    io_write(')')
+local function print_test_name(name)
+  local io_write = io.write
+  for _, descname in ipairs(names) do
+    io_write(colors.magenta, descname, colors.reset, ' | ')
+  end
+  io_write(colors.bright, name, colors.reset)
 end
 
--- Print formatted test name
-local function testname(name)
-    local io_write = io.write
-    for _, descname in ipairs(names) do
-        io_write(colors.magenta, descname, colors.reset, ' | ')
+local function print_error_line(err)
+  local info = debug.getinfo(3)
+  local io_write = io.write
+  io_write(' (', colors.blue, info.short_src, colors.reset,
+    ':', colors.bright, info.currentline, colors.reset)
+  if err and cyl.show_traceback then
+    local fnsrc = info.short_src .. ':' .. info.currentline
+    for cap1, cap2 in err:gmatch('\t[^\n:]+:(%d+): in function <([^>]+)>\n') do
+      if cap2 == fnsrc then
+        io_write('/', colors.bright, cap1, colors.reset)
+        break
+      end
     end
-    io_write(colors.bright, name, colors.reset)
+  end
+  io_write(')')
 end
 
--- Individual test case
-function checkyourlua.it(name, func, enabled)
-    -- Apply filter if specified
-    if checkyourlua.filter and checkyourlua.filter ~= '' then
-        local fullname = table.concat(names, ' | ') .. ' | ' .. name
-        if not fullname:match(checkyourlua.filter) then return end
-    end
-    
-    local io_write = io.write
-    
-    -- Handle skipped tests
-    if enabled == false then
-        if not checkyourlua.quiet then
-            io_write(colors.yellow, '[SKIP] ', colors.reset)
-            testname(name)
-            io_write('\n')
-        else
-            local o = (checkyourlua.utf8term and checkyourlua.color) and quiet_o_char or ' o '
-            io_write(colors.yellow, o, colors.reset)
-        end
-        skipped = skipped + 1
-        total_skipped = total_skipped + 1
-        return
-    end
-    
-    -- Execute before hooks
-    for _, levelbefores in pairs(befores) do
-        for _, beforefn in ipairs(levelbefores) do
-            beforefn(name)
-        end
-    end
-    
-    -- Run test with error handling
-    local success, err
-    if checkyourlua.show_traceback then
-        success, err = xpcall(func, error_handler)
+
+---Group related tests under a named block.
+---@param name string
+---@param func function
+function cyl.describe(name, func)
+  if level == 0 then
+    failures  = 0
+    successes = 0
+    skipped   = 0
+    start     = cyl.seconds()
+    if not cyl_start then cyl_start = start end
+  end
+
+  level = level + 1
+  names[level] = name
+  func()
+  afters[level]  = nil
+  befores[level] = nil
+  level = level - 1
+
+  if level == 0 and not cyl.quiet and (successes > 0 or failures > 0) then
+    local iw = io.write
+    iw(failures == 0 and colors.green or colors.red, '[====] ',
+      colors.magenta, name, colors.reset, ' | ',
+      colors.green, successes, colors.reset, ' passed / ')
+    if skipped  > 0 then iw(colors.yellow, skipped,  colors.reset, ' skipped / ') end
+    if failures > 0 then iw(colors.red,    failures, colors.reset, ' failed / ')  end
+    iw(colors.bright, string.format('%.6f', cyl.seconds() - start), colors.reset, 's\n')
+  end
+end
+
+---Define a single test case inside a describe block.
+---@param name    string
+---@param func    function
+---@param enabled boolean|nil  pass `false` to skip
+function cyl.it(name, func, enabled)
+  -- Filter
+  if cyl.filter and cyl.filter ~= '' then
+    local fullname = table.concat(names, ' | ') .. ' | ' .. name
+    if not fullname:match(cyl.filter) then return end
+  end
+
+  local iw = io.write
+
+  -- Skip
+  if enabled == false then
+    if not cyl.quiet then
+      iw(colors.yellow, '[SKIP] ', colors.reset)
+      print_test_name(name)
+      iw('\n')
     else
-        success, err = pcall(func)
-        if not success and err then err = tostring(err) end
+      local dot = (cyl.utf8term and color_codes.yellow ~= '') and QUIET_DOT or ' o '
+      iw(colors.yellow, dot, colors.reset)
     end
-    
-    -- Update statistics
+    skipped       = skipped + 1
+    total_skipped = total_skipped + 1
+    return
+  end
+
+  -- Before hooks
+  for _, levelbefores in pairs(befores) do
+    for _, fn in ipairs(levelbefores) do fn(name) end
+  end
+
+  -- Run
+  local success, err
+  if cyl.show_traceback then
+    success, err = xpcall(func, error_handler)
+  else
+    success, err = pcall(func)
+    if not success and err then err = tostring(err) end
+  end
+
+  -- Stats
+  if success then
+    successes       = successes + 1
+    total_successes = total_successes + 1
+  else
+    failures       = failures + 1
+    total_failures = total_failures + 1
+  end
+
+  -- Output
+  if not cyl.quiet then
+    iw(success and colors.green or colors.red,
+      success and '[PASS] ' or '[FAIL] ', colors.reset)
+    print_test_name(name)
+    if not success then print_error_line(err) end
+    iw('\n')
+  else
     if success then
-        successes = successes + 1
-        total_successes = total_successes + 1
+      local dot = (cyl.utf8term and color_codes.green ~= '') and QUIET_DOT or ' o '
+      iw(colors.green, dot, colors.reset)
     else
-        failures = failures + 1
-        total_failures = total_failures + 1
+      iw(last_succeeded and '\n' or '', colors.red, '[FAIL] ', colors.reset)
+      print_test_name(name)
+      print_error_line(err)
+      iw('\n')
     end
-    
-    -- Print test result
-    if not checkyourlua.quiet then
-        io_write(success and colors.green or colors.red,
-            success and '[PASS] ' or '[FAIL] ', colors.reset)
-        testname(name)
-        if not success then error_line(err) end
-        io_write('\n')
-    else
-        if success then
-            local o = (checkyourlua.utf8term and checkyourlua.color) and quiet_o_char or ' o '
-            io_write(colors.green, o, colors.reset)
-        else
-            io_write(last_succeeded and '\n' or '',
-                colors.red, '[FAIL] ', colors.reset)
-            testname(name)
-            error_line(err)
-            io_write('\n')
-        end
+  end
+
+  -- Error detail
+  if err and cyl.show_error then
+    if color_codes.blue ~= '' then
+      local ef, el, em, rest = err:match('^([^:\n]+):(%d+): ([^\n]+)(.*)')
+      if ef and el and em and rest then
+        iw(colors.blue, ef, colors.reset, ':', colors.bright, el, colors.reset, ': ')
+        iw(em:match('^%w([^:]*)$') and (colors.red .. em .. colors.reset) or em)
+        err = rest
+      end
     end
-    
-    -- Print error details
-    if err and checkyourlua.show_error then
-        if checkyourlua.color then
-            local errfile, errline, errmsg, rest = 
-                err:match('^([^:\n]+):(%d+): ([^\n]+)(.*)')
-            if errfile and errline and errmsg and rest then
-                io_write(colors.blue, errfile, colors.reset,
-                    ':', colors.bright, errline, colors.reset, ': ')
-                if errmsg:match('^%w([^:]*)$') then
-                    io_write(colors.red, errmsg, colors.reset)
-                else
-                    io_write(errmsg)
-                end
-                err = rest
-            end
-        end
-        io_write(err, '\n\n')
-    end
+    iw(err, '\n\n')
+  end
+  io.flush()
+
+  if not success and cyl.stop_on_fail then
+    if cyl.quiet then iw('\n') end
     io.flush()
-    
-    -- Stop on first failure if configured
-    if not success and checkyourlua.stop_on_fail then
-        if checkyourlua.quiet then
-            io_write('\n')
-            io.flush()
-        end
-        checkyourlua.exit()
-    end
-    
-    -- Execute after hooks
-    for _, levelafters in pairs(afters) do
-        for _, afterfn in ipairs(levelafters) do
-            afterfn(name)
-        end
-    end
-    last_succeeded = success
+    cyl.exit()
+  end
+
+  -- After hooks
+  for _, levelafters in pairs(afters) do
+    for _, fn in ipairs(levelafters) do fn(name) end
+  end
+
+  last_succeeded = success
 end
 
--- Register before hook
-function checkyourlua.before(func)
-    if not befores[level] then befores[level] = {} end
-    table.insert(befores[level], func)
+---Register a function to run before each `it` in the current `describe`.
+---@param func function
+function cyl.before(func)
+  if not befores[level] then befores[level] = {} end
+  table.insert(befores[level], func)
 end
 
--- Register after hook
-function checkyourlua.after(func)
-    if not afters[level] then afters[level] = {} end
-    table.insert(afters[level], func)
+---Register a function to run after each `it` in the current `describe`.
+---@param func function
+function cyl.after(func)
+  if not afters[level] then afters[level] = {} end
+  table.insert(afters[level], func)
 end
 
--- Remove before hook
-function checkyourlua.cleanbefores(func)
-    local levelbefores = befores[level]
-    if not levelbefores then return end
-    for i, beforefn in ipairs(levelbefores) do
-        if beforefn == func then
-            table.remove(levelbefores, i)
-            return
-        end
-    end
+function cyl.cleanbefores(func)
+  local lb = befores[level]
+  if not lb then return end
+  for i, fn in ipairs(lb) do
+    if fn == func then table.remove(lb, i); return end
+  end
 end
 
--- Remove after hook
-function checkyourlua.cleanafter(func)
-    local levelafters = afters[level]
-    if not levelafters then return end
-    for i, afterfn in ipairs(levelafters) do
-        if afterfn == func then
-            table.remove(levelafters, i)
-            return
-        end
-    end
+function cyl.cleanafter(func)
+  local la = afters[level]
+  if not la then return end
+  for i, fn in ipairs(la) do
+    if fn == func then table.remove(la, i); return end
+  end
 end
 
--- Print final test report
-function checkyourlua.report()
-    local now = checkyourlua.seconds()
-    local elapsed = now - (cyl_start or now)
-    io.write(
-        colors.green, total_successes, colors.reset, ' passed / ',
-        colors.yellow, total_skipped, colors.reset, ' skipped / ',
-        colors.red, total_failures, colors.reset, ' failed / ',
-        colors.bright, string.format('%.6f', elapsed), colors.reset, 's\n'
-    )
-    io.flush()
+---Print a final summary line.
+function cyl.report()
+  local now     = cyl.seconds()
+  local elapsed = now - (cyl_start or now)
+  io.write(
+    colors.green,  total_successes, colors.reset, ' passed / ',
+    colors.yellow, total_skipped,   colors.reset, ' skipped / ',
+    colors.red,    total_failures,  colors.reset, ' failed / ',
+    colors.bright, string.format('%.6f', elapsed), colors.reset, 's\n'
+  )
+  io.flush()
 end
 
--- Exit with appropriate code
-function checkyourlua.exit()
-    collectgarbage()
-    exitwithCode(total_failures == 0 and 0 or 1)
+---Exit the process with code 0 (all pass) or 1 (any failure).
+function cyl.exit()
+  collectgarbage()
+  exit_with_code(total_failures == 0 and 0 or 1)
 end
 
--- Expect assertion library
 local expect = {}
-checkyourlua.expect = expect
+cyl.expect = expect
 
--- Convert value to readable string
+
+---Return a human-readable string for any value.
+---@param v any
+---@return string
 function expect.tohstring(v)
-    local s = tostring(v)
-    if s:find '[^ -~\n\t]' then
-        return '"' .. s:gsub('.', function(c) 
-            return string.format('\\x%02X', c:byte()) 
-        end) .. '"'
-    end
-    return s
+  local s = tostring(v)
+  if s:find('[^ -~\n\t]') then
+    return '"' .. s:gsub('.', function(c)
+      return string.format('\\x%02X', c:byte())
+    end) .. '"'
+  end
+  return s
 end
 
--- Get raw tostring without metatable
 local function rawtostring(v)
-    local mt = getmetatable(v)
-    if mt then setmetatable(v, nil) end
-    local s = tostring(v)
-    if mt then setmetatable(v, mt) end
-    return s
+  local mt = getmetatable(v)
+  if mt then setmetatable(v, nil) end
+  local s = tostring(v)
+  if mt then setmetatable(v, mt) end
+  return s
 end
 
--- Get key suffix for error messages
-local function strict_eq_key_suffix(k)
-    if type(k) == 'string' then
-        if k:find('^[a-zA-Z_][a-zA-Z0-9_]*$') then
-            return '.' .. k
-        elseif k:find '[^ -~\n\t]' then
-            return '["' .. k:gsub('.', function(c) 
-                return string.format('\\x%02X', c:byte()) 
-            end) .. '"]'
-        else
-            return '["' .. k .. '"]'
-        end
-    else
-        return string.format('[%s]', rawtostring(k))
+local function key_suffix(k)
+  if type(k) == 'string' then
+    if k:find('^[a-zA-Z_][a-zA-Z0-9_]*$') then return '.' .. k end
+    if k:find('[^ -~\n\t]') then
+      return '["' .. k:gsub('.', function(c)
+        return string.format('\\x%02X', c:byte())
+      end) .. '"]'
     end
+    return '["' .. k .. '"]'
+  end
+  return string.format('[%s]', rawtostring(k))
 end
 
--- Check if function fails
-function expect.fail(func, expected)
-    local ok, err = pcall(func)
-    if ok then
-        error('expected function to fail, but it succeeded', 2)
-    elseif expected and not (expected == err or 
-        tostring(err):find(expected, 1, true)) then
-        error(string.format('expected error containing: %s\ngot: %s', 
-            expected, tostring(err)), 2)
-    end
-end
 
--- Check if function doesn't fail
-function expect.not_fail(func)
-    local ok, err = pcall(func)
-    if not ok then
-        error('expected function to not fail\ngot error:\n' .. 
-            expect.tohstring(err), 2)
-    end
-end
-
--- Check if value exists (not nil)
-function expect.exist(v)
-    if v == nil then
-        error('expected value to exist\ngot: nil', 2)
-    end
-end
-
--- Check if value doesn't exist (is nil)
-function expect.not_exist(v)
-    if v ~= nil then
-        error('expected value to not exist\ngot:\n' .. expect.tohstring(v), 2)
-    end
-end
-
--- Check if value is truthy
-function expect.truthy(v)
-    if not v then
-        error('expected value to be truthy\ngot:\n' .. expect.tohstring(v), 2)
-    end
-end
-
--- Check if value is falsy
-function expect.falsy(v)
-    if v then
-        error('expected value to be falsy\ngot:\n' .. expect.tohstring(v), 2)
-    end
-end
-
--- Deep equality check for tables
+---Deep structural equality check (recursive over tables).
+---@param t1 any
+---@param t2 any
+---@param name string|nil path prefix for error messages
+---@return boolean, string|nil
 function expect.strict_eq(t1, t2, name)
-    if rawequal(t1, t2) then return true end
-    name = name or 'value'
-    local t1type, t2type = type(t1), type(t2)
-    if t1type ~= t2type then
-        return false, string.format("expected types to match for %s\nfirst: %s\nsecond: %s",
-            name, t1type, t2type)
+  if rawequal(t1, t2) then return true end
+  name = name or 'value'
+  local t1t, t2t = type(t1), type(t2)
+  if t1t ~= t2t then
+    return false, string.format(
+      "type mismatch for %s\n  expected: %s\n  got:      %s", name, t2t, t1t)
+  end
+  if t1t == 'table' then
+    if getmetatable(t1) ~= getmetatable(t2) then
+      return false, string.format("metatable mismatch for %s", name)
     end
-    if t1type == 'table' then
-        if getmetatable(t1) ~= getmetatable(t2) then
-            return false, string.format("expected metatables to match for %s", name)
-        end
-        for k, v1 in pairs(t1) do
-            local ok, err = expect.strict_eq(v1, t2[k], 
-                name .. strict_eq_key_suffix(k))
-            if not ok then return false, err end
-        end
-        for k, v2 in pairs(t2) do
-            local ok, err = expect.strict_eq(v2, t1[k], 
-                name .. strict_eq_key_suffix(k))
-            if not ok then return false, err end
-        end
-    elseif t1 ~= t2 then
-        return false, string.format(
-            "expected values to be equal for %s\nfirst:\n%s\nsecond:\n%s",
-            name, expect.tohstring(t1), expect.tohstring(t2))
+    for k, v1 in pairs(t1) do
+      local ok, err = expect.strict_eq(v1, t2[k], name .. key_suffix(k))
+      if not ok then return false, err end
+    end
+    for k, v2 in pairs(t2) do
+      local ok, err = expect.strict_eq(v2, t1[k], name .. key_suffix(k))
+      if not ok then return false, err end
     end
     return true
+  end
+  return false, string.format(
+    "not equal for %s\n  expected: %s\n  got:      %s",
+    name, expect.tohstring(t2), expect.tohstring(t1))
 end
 
--- Check if two values are equal
-function expect.equal(v1, v2)
-    local ok, err = expect.strict_eq(v1, v2)
-    if not ok then error(err, 2) end
-end
 
--- Check if two values are not equal
-function expect.not_equal(v1, v2)
-    if expect.strict_eq(v1, v2) then
-        error('expected values to be not equal\nfirst:\n' .. 
-            expect.tohstring(v1) .. '\nsecond:\n' .. expect.tohstring(v2), 2)
+---Assert that calling `func` raises an error.
+---Optionally assert the error message contains `expected`.
+---@param func function
+---@param expected string|nil
+function expect.fail(func, expected)
+  local ok, err = pcall(func)
+  if ok then
+    error('expected function to raise an error, but it succeeded', 2)
+  elseif expected then
+    local msg = tostring(err)
+    if msg ~= expected and not msg:find(expected, 1, true) then
+      error(string.format(
+        'expected error containing:\n  %s\ngot:\n  %s', expected, msg), 2)
     end
+  end
 end
 
-return checkyourlua
+---Assert that calling `func` does NOT raise an error.
+---@param func function
+function expect.not_fail(func)
+  local ok, err = pcall(func)
+  if not ok then
+    error('expected function to succeed, got error:\n' ..
+      expect.tohstring(err), 2)
+  end
+end
+
+---Assert that `v` is not nil.
+---@param v any
+function expect.exist(v)
+  if v == nil then
+    error('expected a non-nil value, got nil', 2)
+  end
+end
+
+---Assert that `v` is nil.
+---@param v any
+function expect.not_exist(v)
+  if v ~= nil then
+    error('expected nil, got:\n  ' .. expect.tohstring(v), 2)
+  end
+end
+
+---Assert that `v` is truthy (not nil and not false).
+---@param v any
+function expect.truthy(v)
+  if not v then
+    error('expected a truthy value, got:\n  ' .. expect.tohstring(v), 2)
+  end
+end
+
+---Assert that `v` is falsy (nil or false).
+---@param v any
+function expect.falsy(v)
+  if v then
+    error('expected a falsy value, got:\n  ' .. expect.tohstring(v), 2)
+  end
+end
+
+---Assert deep equality between two values.
+---@param v1 any
+---@param v2 any
+function expect.equal(v1, v2)
+  local ok, err = expect.strict_eq(v1, v2)
+  if not ok then error(err, 2) end
+end
+
+---Assert that two values are NOT deeply equal.
+---@param v1 any
+---@param v2 any
+function expect.not_equal(v1, v2)
+  if expect.strict_eq(v1, v2) then
+    error('expected values to differ, but both are:\n  ' ..
+      expect.tohstring(v1), 2)
+  end
+end
+
+
+---Assert that `v` is of the given Lua type string.
+---@param v    any
+---@param expected_type string  e.g. "number", "string", "table", "boolean"
+function expect.type(v, expected_type)
+  local got = type(v)
+  if got ~= expected_type then
+    error(string.format(
+      'expected type %q, got %q\n  value: %s',
+      expected_type, got, expect.tohstring(v)), 2)
+  end
+end
+
+
+---Assert that string `s` matches the Lua pattern `pattern`.
+---@param s       string
+---@param pattern string  Lua pattern (not a plain substring)
+function expect.matches(s, pattern)
+  if type(s) ~= 'string' then
+    error('expect.matches: first argument must be a string, got ' .. type(s), 2)
+  end
+  if not s:find(pattern) then
+    error(string.format(
+      'expected string to match pattern:\n  pattern: %s\n  got:     %s',
+      pattern, expect.tohstring(s)), 2)
+  end
+end
+
+---Assert that string `s` does NOT match the Lua pattern `pattern`.
+---@param s       string
+---@param pattern string
+function expect.not_matches(s, pattern)
+  if type(s) ~= 'string' then
+    error('expect.not_matches: first argument must be a string, got ' .. type(s), 2)
+  end
+  if s:find(pattern) then
+    error(string.format(
+      'expected string NOT to match pattern:\n  pattern: %s\n  got:     %s',
+      pattern, expect.tohstring(s)), 2)
+  end
+end
+
+
+---Assert that two numbers are within `delta` of each other.
+---Useful for floating-point comparisons.
+---@param a     number
+---@param b     number
+---@param delta number  allowed absolute difference (default 1e-9)
+function expect.near(a, b, delta)
+  delta = delta or 1e-9
+  if type(a) ~= 'number' or type(b) ~= 'number' then
+    error('expect.near: both arguments must be numbers', 2)
+  end
+  if math.abs(a - b) > delta then
+    error(string.format(
+      'expected %s ≈ %s (within %s)\n  difference: %s',
+      a, b, delta, math.abs(a - b)), 2)
+  end
+end
+
+-- ── NEW: table / string contains ─────────────────────────────────────────────
+
+---Assert that table `t` contains value `v` (linear search by equality).
+---Also works for substrings: if `t` is a string, checks plain substring.
+---@param t any  table or string
+---@param v any
+function expect.contains(t, v)
+  if type(t) == 'string' then
+    if not t:find(tostring(v), 1, true) then
+      error(string.format(
+        'expected string to contain:\n  %s\ngot:\n  %s',
+        expect.tohstring(v), expect.tohstring(t)), 2)
+    end
+    return
+  end
+  if type(t) ~= 'table' then
+    error('expect.contains: first argument must be a table or string', 2)
+  end
+  for _, item in ipairs(t) do
+    if rawequal(item, v) then return end
+  end
+  error(string.format(
+    'expected table to contain:\n  %s', expect.tohstring(v)), 2)
+end
+
+---Assert that table `t` does NOT contain value `v`.
+---@param t table
+---@param v any
+function expect.not_contains(t, v)
+  if type(t) ~= 'table' then
+    error('expect.not_contains: first argument must be a table', 2)
+  end
+  for _, item in ipairs(t) do
+    if rawequal(item, v) then
+      error(string.format(
+        'expected table NOT to contain:\n  %s', expect.tohstring(v)), 2)
+    end
+  end
+end
+
+-- ── NEW: length assertion ─────────────────────────────────────────────────────
+
+---Assert that `#v == n`.
+---@param v any  table or string
+---@param n number
+function expect.length(v, n)
+  local actual = #v
+  if actual ~= n then
+    error(string.format(
+      'expected length %d, got %d', n, actual), 2)
+  end
+end
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- Module export
+-- ────────────────────────────────────────────────────────────────────────────
+
+return cyl
 
 --[[
 LICENSE - PUBLIC DOMAIN (Unlicense)
 
 This is free and unencumbered software released into the public domain.
+Anyone is free to copy, modify, publish, use, compile, sell, or distribute
+this software, for any purpose, commercial or non-commercial, and by any means.
 
-Anyone is free to copy, modify, publish, use, compile, sell, or
-distribute this software, either in source code form or as a compiled
-binary, for any purpose, commercial or non-commercial, and by any
-means.
-
-In jurisdictions that recognize copyright laws, the author or authors
-of this software dedicate any and all copyright interest in the
-software to the public domain. We make this dedication for the benefit
-of the public at large and to the detriment of our heirs and
-successors. We intend this dedication to be an overt act of
-relinquishment in perpetuity of all present and future rights to this
-software under copyright law.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
-
-For more information, please refer to https://unlicense.org
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+For more information: https://unlicense.org
 ]]

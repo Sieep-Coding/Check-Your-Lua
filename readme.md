@@ -401,7 +401,7 @@ end)
 ### Testing a Module
 
 ```lua
-local cyl = require('checkyourlua')
+local cyl = require('checkyour')
 local math_utils = require('math_utils')
 local describe, it, expect = cyl.describe, cyl.it, cyl.expect
 
@@ -478,9 +478,9 @@ end)
 
 ### Module Not Found
 
-**Problem:** `require('checkyourlua')` fails.
+**Problem:** `require('checkyour')` fails.
 
-**Solution:** Verify the file is named exactly `checkyourlua.lua` and is in the same directory or Lua path.
+**Solution:** Verify the file is named exactly `checkyour.lua` and is in the same directory or Lua path.
 
 ---
 
