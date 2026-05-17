@@ -1,0 +1,3 @@
+local Stack = {}
+
+return Stack
