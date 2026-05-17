@@ -1,11 +1,10 @@
 --[[
-
-CHECK YOUR LUA
-Minimal Lua testing framework.
+CHECK YOUR LUA - Minimal Lua Testing Framework
 Nick Stambaugh - nickstambaugh@proton.me
 https://github.com/sieep-coding/Check-Your-Lua
-https://nickstambaugh.vercel.app
-See bottom for license.
+https://nickstambaugh.dev
+
+Public Domain License - See bottom for details.
 ]]
 
 local log = {}
@@ -17,8 +16,10 @@ function log.error(m)
     print('[ERROR] ' .. m)
 end
 
+-- UTF-8 quiet character for minimal output mode
 local quiet_o_char = string.char(226, 151, 143)
--- Color codes.
+
+-- ANSI color codes for terminal output
 local color_codes = {
     reset = string.char(27) .. '[0m',
     bright = string.char(27) .. '[1m',
@@ -29,7 +30,7 @@ local color_codes = {
     magenta = string.char(27) .. '[35m',
 }
 
--- Variables used internally for the CYL state.
+-- Internal state management
 local last_succeeded = false
 local level = 0
 local successes = 0
@@ -43,20 +44,12 @@ local befores = {}
 local afters = {}
 local names = {}
 local results = { passed = 0, failed = 0, skipped = 0 }
-
 local cyl_start = os.clock()
 
--- checks for terminal support for UTF-8
+-- Platform detection utilities
 local function is_utf8term()
-    local lang = os.getenv('lang')
-    print('OS environment: ' .. lang)
-    return (lang and lang:lower():match('utf%-?8$')) and true or false
-end
-
---check for linux
--- Check if the current system is Linux by inspecting the 'linux' environment variable.
-local function is_linux()
-    return os.getenv('linux') and os.getenv('linux'):lower():match('linux$') ~= nil
+    local lang = os.getenv('LANG') or os.getenv('LC_ALL') or ''
+    return lang:lower():match('utf%-?8$') ~= nil
 end
 
 local function is_windows()
@@ -64,69 +57,49 @@ local function is_windows()
     if os_name and os_name:lower():match('windows') then
         return true
     end
-    local handle = io.popen('uname -s')
-    local result
-    if handle then
-        result = handle:read('*a')
-        handle:close()
-    else
-        return false
-    end
-
-    return result:lower():match('windows') ~= nil
+    local handle = io.popen('uname -s 2>/dev/null')
+    if not handle then return false end
+    local result = handle:read('*a')
+    handle:close()
+    return result and result:lower():match('windows') ~= nil
 end
 
-
--- Exit the program with the specified exit code.
+-- Exit handler for cross-platform compatibility
 local function exitwithCode(code)
-    print('Exiting with code ' .. code)
-    if is_linux() then
-        return
-    end
     if is_windows() then
         os.exit(code, true)
-        return
+    else
+        os.exit(code)
     end
-    os.exit(code)
 end
 
-
+-- Error handler with stack trace
 local function error_handler(err)
-    print('err: ' .. debug.traceback(tostring(err), 2))
     return debug.traceback(tostring(err), 2)
 end
 
--- Returns whether a system environment variable is "true".
+-- Parse boolean environment variables with defaults
 local function getboolenv(varname, default)
     local val = os.getenv(varname)
-    if val == 'true' then
-        return true
-    elseif val == 'false' then
-        return false
+    if val == 'true' then return true
+    elseif val == 'false' then return false
     end
     return default
 end
 
---The Check Your Lua Module
+-- Main CYL module
 local checkyourlua = {
-    --- Whether the output should  be colorized. True by default.
     color = getboolenv('CYL_COLOR', true),
-    --- Whether lines of passed tests should not be printed. False by default.
     quiet = getboolenv('CYL_QUIET', false),
-    --- Whether a traceback must be shown on test failures. True by default.
     show_traceback = getboolenv('CYL_SHOW_TRACEBACK', true),
-     --- Whether the error description of a test failure should be shown. True by default.
     show_error = getboolenv('CYL_SHOW_ERROR', true),
-    --- Whether test suite should exit on first test failure. False by default.
     stop_on_fail = getboolenv('CYL_STOP_ON_FAIL', false),
-    --- Whether we can print UTF-8 characters to the terminal. True by default when supported.
     utf8term = getboolenv('CYL_UTF8TERM', is_utf8term()),
-    --- A string with a lua pattern to filter tests. Nil by default.
     filter = os.getenv('CYL_FILTER') or '',
-    --- Function to retrieve time in seconds with milliseconds precision, `os.clock` by default.
     seconds = os.clock,
 }
 
+-- Color wrapper with conditional output
 local colors = setmetatable({}, {
     __index = function(_, key)
         return checkyourlua.color and color_codes[key] or ''
@@ -135,8 +108,10 @@ local colors = setmetatable({}, {
 
 checkyourlua.color = colors
 
+-- Parse command-line arguments
 function checkyourlua.parseargs(arg)
-    for _, opt in ipairs(arg or _G.arg) do
+    arg = arg or _G.arg
+    for _, opt in ipairs(arg) do
         local name, value
         if opt:find('^%-%-filter') then
             name = 'filter'
@@ -148,61 +123,61 @@ function checkyourlua.parseargs(arg)
             name = opt:match('^%-%-([a-z0-9-]+)$'):gsub('-', '_')
             value = true
         end
-        if value ~= nil and checkyourlua[name] ~= nil and (type(checkyourlua[name]) == "boolean" or type(checkyourlua[name]) == "string") then
-            checkyourlua[name] = value
+        if value ~= nil and checkyourlua[name] ~= nil then
+            local t = type(checkyourlua[name])
+            if t == 'boolean' or t == 'string' then
+                checkyourlua[name] = value
+            end
         end
     end
 end
 
+-- Describe block for organizing tests
 function checkyourlua.describe(name, func)
-    --Get a start time
     if level == 0 then
         failures = 0
         successes = 0
         skipped = 0
         start = checkyourlua.seconds()
-        if not cyl_start then
-            cyl_start = start
-        end
+        if not cyl_start then cyl_start = start end
     end
-    --Setup block variable
+    
     level = level + 1
     names[level] = name
-    --run it
     func()
     afters[level] = nil
     befores[level] = nil
     level = level - 1
-    -- Pretty print statistics for top level describe block.
+    
+    -- Print summary for top-level describe blocks
     if level == 0 and not checkyourlua.quiet and (successes > 0 or failures > 0) then
         local io_write = io.write
-        local colors_reset, colors_green = colors.reset, colors.green
-        io_write(failures == 0 and colors_green or colors.red, '[====] ',
-            colors.magenta, name, colors_reset, ' | ',
-            colors_green, successes, colors_reset, ' successes / ')
+        io_write(failures == 0 and colors.green or colors.red, '[====] ',
+            colors.magenta, name, colors.reset, ' | ',
+            colors.green, successes, colors.reset, ' passed / ')
         if skipped > 0 then
-            io_write(colors.yellow, skipped, colors_reset, ' skipped / ')
+            io_write(colors.yellow, skipped, colors.reset, ' skipped / ')
         end
         if failures > 0 then
-            io_write(colors.red, failures, colors_reset, ' failures / ')
+            io_write(colors.red, failures, colors.reset, ' failed / ')
         end
-        io_write(colors.bright, string.format('%.6f', checkyourlua.seconds() - start), colors_reset, ' seconds\n')
+        io_write(colors.bright, string.format('%.6f', checkyourlua.seconds() - start), 
+            colors.reset, 's\n')
     end
 end
 
---print error line
+-- Print error location information
 local function error_line(err)
     local info = debug.getinfo(3)
     local io_write = io.write
-    local colors_reset = colors.reset
     local short_src, currentline = info.short_src, info.currentline
-    io_write(' (', colors.blue, short_src, colors_reset,
-        ':', colors.bright, currentline, colors_reset)
+    io_write(' (', colors.blue, short_src, colors.reset,
+        ':', colors.bright, currentline, colors.reset)
     if err and checkyourlua.show_traceback then
         local fnsrc = short_src .. ':' .. currentline
         for cap1, cap2 in err:gmatch('\t[^\n:]+:(%d+): in function <([^>]+)>\n') do
             if cap2 == fnsrc then
-                io_write('/', colors.bright, cap1, colors_reset)
+                io_write('/', colors.bright, cap1, colors.reset)
                 break
             end
         end
@@ -210,57 +185,57 @@ local function error_line(err)
     io_write(')')
 end
 
---print test name
+-- Print formatted test name
 local function testname(name)
     local io_write = io.write
-    local colors_reset = colors.reset
     for _, descname in ipairs(names) do
-        io_write(colors.magenta, descname, colors_reset, ' | ')
+        io_write(colors.magenta, descname, colors.reset, ' | ')
     end
-    io_write(colors.bright, name, colors_reset)
+    io_write(colors.bright, name, colors.reset)
 end
 
+-- Individual test case
 function checkyourlua.it(name, func, enabled)
-    -- Skip the test silently if it does not match the filter.
-    if checkyourlua.filter then
+    -- Apply filter if specified
+    if checkyourlua.filter and checkyourlua.filter ~= '' then
         local fullname = table.concat(names, ' | ') .. ' | ' .. name
-        if not fullname:match(checkyourlua.filter) then
-            return
-        end
+        if not fullname:match(checkyourlua.filter) then return end
     end
+    
     local io_write = io.write
-    local colors_reset = colors.reset
-    -- Skip the test if it's disabled, while displaying a message
+    
+    -- Handle skipped tests
     if enabled == false then
         if not checkyourlua.quiet then
-            io_write(colors.yellow, '[SKIP] ', colors_reset)
+            io_write(colors.yellow, '[SKIP] ', colors.reset)
             testname(name)
             io_write('\n')
-        else -- Show just a character hinting that the test was skipped.
+        else
             local o = (checkyourlua.utf8term and checkyourlua.color) and quiet_o_char or ' o '
-            io_write(colors.yellow, o, colors_reset)
+            io_write(colors.yellow, o, colors.reset)
         end
         skipped = skipped + 1
         total_skipped = total_skipped + 1
         return
     end
-    -- Execute before handlers.
+    
+    -- Execute before hooks
     for _, levelbefores in pairs(befores) do
         for _, beforefn in ipairs(levelbefores) do
             beforefn(name)
         end
     end
-    -- Run the test, capturing errors if any.
+    
+    -- Run test with error handling
     local success, err
     if checkyourlua.show_traceback then
         success, err = xpcall(func, error_handler)
     else
         success, err = pcall(func)
-        if not success and err then
-            err = tostring(err)
-        end
+        if not success and err then err = tostring(err) end
     end
-    -- Count successes and failures.
+    
+    -- Update statistics
     if success then
         successes = successes + 1
         total_successes = total_successes + 1
@@ -268,39 +243,37 @@ function checkyourlua.it(name, func, enabled)
         failures = failures + 1
         total_failures = total_failures + 1
     end
-    -- Print the test run.
-    if not checkyourlua.quiet then -- Show test status and complete test name.
-        if success then
-            io_write(colors.green, '[PASS] ', colors_reset)
-        else
-            io_write(colors.red, '[FAIL] ', colors_reset)
-        end
+    
+    -- Print test result
+    if not checkyourlua.quiet then
+        io_write(success and colors.green or colors.red,
+            success and '[PASS] ' or '[FAIL] ', colors.reset)
         testname(name)
-        if not success then
-            error_line(err)
-        end
+        if not success then error_line(err) end
         io_write('\n')
     else
-        if success then -- Show just a character hinting that the test succeeded.
+        if success then
             local o = (checkyourlua.utf8term and checkyourlua.color) and quiet_o_char or ' o '
-            io_write(colors.green, o, colors_reset)
-        else -- Show complete test name on failure.
+            io_write(colors.green, o, colors.reset)
+        else
             io_write(last_succeeded and '\n' or '',
-                colors.red, '[FAIL] ', colors_reset)
+                colors.red, '[FAIL] ', colors.reset)
             testname(name)
             error_line(err)
             io_write('\n')
         end
     end
-    -- Print error message, colorizing its output if possible.
+    
+    -- Print error details
     if err and checkyourlua.show_error then
         if checkyourlua.color then
-            local errfile, errline, errmsg, rest = err:match('^([^:\n]+):(%d+): ([^\n]+)(.*)')
+            local errfile, errline, errmsg, rest = 
+                err:match('^([^:\n]+):(%d+): ([^\n]+)(.*)')
             if errfile and errline and errmsg and rest then
-                io_write(colors.blue, errfile, colors_reset,
-                    ':', colors.bright, errline, colors_reset, ': ')
+                io_write(colors.blue, errfile, colors.reset,
+                    ':', colors.bright, errline, colors.reset, ': ')
                 if errmsg:match('^%w([^:]*)$') then
-                    io_write(colors.red, errmsg, colors_reset)
+                    io_write(colors.red, errmsg, colors.reset)
                 else
                     io_write(errmsg)
                 end
@@ -310,7 +283,8 @@ function checkyourlua.it(name, func, enabled)
         io_write(err, '\n\n')
     end
     io.flush()
-    -- Stop on failure.
+    
+    -- Stop on first failure if configured
     if not success and checkyourlua.stop_on_fail then
         if checkyourlua.quiet then
             io_write('\n')
@@ -318,7 +292,8 @@ function checkyourlua.it(name, func, enabled)
         end
         checkyourlua.exit()
     end
-    -- Execute after handlers.
+    
+    -- Execute after hooks
     for _, levelafters in pairs(afters) do
         for _, afterfn in ipairs(levelafters) do
             afterfn(name)
@@ -327,52 +302,34 @@ function checkyourlua.it(name, func, enabled)
     last_succeeded = success
 end
 
---- Set a function that is called before every test inside a describe block.
--- A single string containing the name of the test about to be run will be passed to `func`.
+-- Register before hook
 function checkyourlua.before(func)
-    local levelbefores = befores[level]
-    if not levelbefores then
-        levelbefores = {}
-        befores[level] = levelbefores
-    end
-    levelbefores[#levelbefores + 1] = func
+    if not befores[level] then befores[level] = {} end
+    table.insert(befores[level], func)
 end
 
+-- Register after hook
+function checkyourlua.after(func)
+    if not afters[level] then afters[level] = {} end
+    table.insert(afters[level], func)
+end
+
+-- Remove before hook
 function checkyourlua.cleanbefores(func)
     local levelbefores = befores[level]
-    if not levelbefores then
-        return
-    end
-    if levelbefores then
-        for i, beforefn in ipairs(levelbefores) do
-            if beforefn == func then
-                table.remove(levelbefores, i)
-                return
-            end
+    if not levelbefores then return end
+    for i, beforefn in ipairs(levelbefores) do
+        if beforefn == func then
             table.remove(levelbefores, i)
             return
         end
     end
-    
 end
 
---- Set a function that is called after every test inside a describe block.
--- A single string containing the name of the test that was finished will be passed to `func`.
--- The function is executed independently if the test passed or failed.
-function checkyourlua.after(func)
-    local levelafters = afters[level]
-    if not levelafters then
-        levelafters = {}
-        afters[level] = levelafters
-    end
-    levelafters[#levelafters + 1] = func
-end
-
+-- Remove after hook
 function checkyourlua.cleanafter(func)
     local levelafters = afters[level]
-    if not levelafters then
-        return
-    end
+    if not levelafters then return end
     for i, afterfn in ipairs(levelafters) do
         if afterfn == func then
             table.remove(levelafters, i)
@@ -381,128 +338,58 @@ function checkyourlua.cleanafter(func)
     end
 end
 
-    -- Determine whether we're managing before or after functions.
-function checkyourlua.manage(level, func, when)
-    local targetTable
-    if when == 'before' then
-        targetTable = befores
-    elseif when == 'after' then
-        targetTable = afters
-    else
-        error("Invalid 'when' value. Use 'before' or 'after'.")
-    end
-    if not targetTable[level] then
-        targetTable[level] = {}
-    end
-    table.insert(targetTable[level], func)
-end
-
+-- Print final test report
 function checkyourlua.report()
     local now = checkyourlua.seconds()
-    local colors_reset = colors.reset
+    local elapsed = now - (cyl_start or now)
     io.write(
-        colors.green, total_successes, colors_reset, ' successes / ',
-        colors.yellow, total_skipped, colors_reset, ' skipped / ',
-        colors.red, total_failures, colors_reset, ' failures / ',
-        colors.bright, string.format('%.6f', now - (cyl_start or now)), colors_reset, ' seconds\n'
+        colors.green, total_successes, colors.reset, ' passed / ',
+        colors.yellow, total_skipped, colors.reset, ' skipped / ',
+        colors.red, total_failures, colors.reset, ' failed / ',
+        colors.bright, string.format('%.6f', elapsed), colors.reset, 's\n'
     )
     io.flush()
-    local exit_code = results.failed > 0 and 1 or 0
-    exitwithCode(exit_code)
-    return total_failures == 0
 end
 
-function ExitCYL()
+-- Exit with appropriate code
+function checkyourlua.exit()
     collectgarbage()
-    collectgarbage()
-    os.exit(total_failures == 0, true)
+    exitwithCode(total_failures == 0 and 0 or 1)
 end
 
--- local quiet_o_char = string.char(226, 151, 143)
-
+-- Expect assertion library
 local expect = {}
 checkyourlua.expect = expect
 
-
+-- Convert value to readable string
 function expect.tohstring(v)
     local s = tostring(v)
     if s:find '[^ -~\n\t]' then
-        return '"' .. s:gsub('.', function(c) return string.format('\\x%02X', c:byte()) end) .. '"'
+        return '"' .. s:gsub('.', function(c) 
+            return string.format('\\x%02X', c:byte()) 
+        end) .. '"'
     end
     return s
 end
 
---check if function fails
-function expect.fail(func, expected)
-    local ok, err = pcall(func)
-    if ok then
-        log.error("Expected function to fail, but it succeeded.")
-        results.failed = results.failed + 1
-    elseif expected ~= nil and not (expected == err or string.find(tostring(err), expected, 1, true)) then
-        log.error(string.format("Expected: %s, Got: %s", expected, tostring(err)))
-        results.failed = results.failed + 1
-    else
-        results.passed = results.passed + 1
-    end
-    return true
-end
-
---- Check if a function does not fail with a error.
-function expect.not_fail(func)
-    local ok, err = pcall(func)
-    if not ok then
-        error('expected function to not fail\ngot error:\n' .. expect.tohstring(err), 2)
-    end
-end
-
---- Check if a value is not `nil`.
-function expect.exist(v)
-    if v == nil then
-        error('expected value to exist\ngot:\n' .. expect.tohstring(v), 2)
-    end
-end
-
---- Check if a value is `nil`.
-function expect.not_exist(v)
-    if v ~= nil then
-        error('expected value to not exist\ngot:\n' .. expect.tohstring(v), 2)
-    end
-end
-
---- Check if an expression is evaluates to `true`.
-function expect.truthy(v)
-    if not v then
-        error('expected expression to be true\ngot:\n' .. expect.tohstring(v), 2)
-    end
-end
-
---- Check if an expression is evaluates to `false`.
-function expect.falsy(v)
-    if v then
-        error('expected expression to be false\ngot:\n' .. expect.tohstring(v), 2)
-    end
-end
-
---- Returns raw tostring result for a value.
+-- Get raw tostring without metatable
 local function rawtostring(v)
     local mt = getmetatable(v)
-    if mt then
-        setmetatable(v, nil)
-    end
+    if mt then setmetatable(v, nil) end
     local s = tostring(v)
-    if mt then
-        setmetatable(v, mt)
-    end
+    if mt then setmetatable(v, mt) end
     return s
 end
 
--- Returns key suffix for a string_eq table key.
+-- Get key suffix for error messages
 local function strict_eq_key_suffix(k)
     if type(k) == 'string' then
-        if k:find('^[a-zA-Z_][a-zA-Z0-9]*$') then -- string is a lua field
+        if k:find('^[a-zA-Z_][a-zA-Z0-9_]*$') then
             return '.' .. k
-        elseif k:find '[^ -~\n\t]' then       -- string contains non printable ASCII
-            return '["' .. k:gsub('.', function(c) return string.format('\\x%02X', c:byte()) end) .. '"]'
+        elseif k:find '[^ -~\n\t]' then
+            return '["' .. k:gsub('.', function(c) 
+                return string.format('\\x%02X', c:byte()) 
+            end) .. '"]'
         else
             return '["' .. k .. '"]'
         end
@@ -511,60 +398,104 @@ local function strict_eq_key_suffix(k)
     end
 end
 
---- Compare if two values are equal, considering nested tables.
+-- Check if function fails
+function expect.fail(func, expected)
+    local ok, err = pcall(func)
+    if ok then
+        error('expected function to fail, but it succeeded', 2)
+    elseif expected and not (expected == err or 
+        tostring(err):find(expected, 1, true)) then
+        error(string.format('expected error containing: %s\ngot: %s', 
+            expected, tostring(err)), 2)
+    end
+end
+
+-- Check if function doesn't fail
+function expect.not_fail(func)
+    local ok, err = pcall(func)
+    if not ok then
+        error('expected function to not fail\ngot error:\n' .. 
+            expect.tohstring(err), 2)
+    end
+end
+
+-- Check if value exists (not nil)
+function expect.exist(v)
+    if v == nil then
+        error('expected value to exist\ngot: nil', 2)
+    end
+end
+
+-- Check if value doesn't exist (is nil)
+function expect.not_exist(v)
+    if v ~= nil then
+        error('expected value to not exist\ngot:\n' .. expect.tohstring(v), 2)
+    end
+end
+
+-- Check if value is truthy
+function expect.truthy(v)
+    if not v then
+        error('expected value to be truthy\ngot:\n' .. expect.tohstring(v), 2)
+    end
+end
+
+-- Check if value is falsy
+function expect.falsy(v)
+    if v then
+        error('expected value to be falsy\ngot:\n' .. expect.tohstring(v), 2)
+    end
+end
+
+-- Deep equality check for tables
 function expect.strict_eq(t1, t2, name)
     if rawequal(t1, t2) then return true end
     name = name or 'value'
     local t1type, t2type = type(t1), type(t2)
     if t1type ~= t2type then
-        return false, string.format("expected types to be equal for %s\nfirst: %s\nsecond: %s",
+        return false, string.format("expected types to match for %s\nfirst: %s\nsecond: %s",
             name, t1type, t2type)
     end
     if t1type == 'table' then
         if getmetatable(t1) ~= getmetatable(t2) then
-            return false, string.format("expected metatables to be equal for %s\nfirst: %s\nsecond: %s",
-                name, expect.tohstring(t1), expect.tohstring(t2))
+            return false, string.format("expected metatables to match for %s", name)
         end
         for k, v1 in pairs(t1) do
-            local ok, err = expect.strict_eq(v1, t2[k], name .. strict_eq_key_suffix(k))
-            if not ok then
-                return false, err
-            end
+            local ok, err = expect.strict_eq(v1, t2[k], 
+                name .. strict_eq_key_suffix(k))
+            if not ok then return false, err end
         end
         for k, v2 in pairs(t2) do
-            local ok, err = expect.strict_eq(v2, t1[k], name .. strict_eq_key_suffix(k))
-            if not ok then
-                return false, err
-            end
+            local ok, err = expect.strict_eq(v2, t1[k], 
+                name .. strict_eq_key_suffix(k))
+            if not ok then return false, err end
         end
     elseif t1 ~= t2 then
-        return false, string.format("expected values to be equal for %s\nfirst:\n%s\nsecond:\n%s",
+        return false, string.format(
+            "expected values to be equal for %s\nfirst:\n%s\nsecond:\n%s",
             name, expect.tohstring(t1), expect.tohstring(t2))
     end
     return true
 end
 
---- Check if two values are equal.
+-- Check if two values are equal
 function expect.equal(v1, v2)
     local ok, err = expect.strict_eq(v1, v2)
-    if not ok then
-        error(err, 2)
-    end
+    if not ok then error(err, 2) end
 end
 
---- Check if two values are not equal.
+-- Check if two values are not equal
 function expect.not_equal(v1, v2)
     if expect.strict_eq(v1, v2) then
-        local v1s, v2s = expect.tohstring(v1), expect.tohstring(v2)
-        error('expected values to be not equal\nfirst value:\n' .. v1s .. '\nsecond value:\n' .. v2s, 2)
+        error('expected values to be not equal\nfirst:\n' .. 
+            expect.tohstring(v1) .. '\nsecond:\n' .. expect.tohstring(v2), 2)
     end
 end
 
 return checkyourlua
 
 --[[
-
---LICENSE--
+LICENSE - PUBLIC DOMAIN (Unlicense)
 
 This is free and unencumbered software released into the public domain.
 
@@ -589,6 +520,5 @@ OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 
-For more information, please refer to <https://unlicense.org>
-
+For more information, please refer to https://unlicense.org
 ]]
