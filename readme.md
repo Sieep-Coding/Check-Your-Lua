@@ -1,7 +1,6 @@
----
-title: Check Your Lua Quick Reference
-description: A concise, single-page guide to using the minimal Check Your Lua (CYL) framework.
----
+## Check Your Lua Quick Reference
+A concise, single-page guide to using the minimal Check Your Lua (CYL) framework.
+
 
 ## Installation & Setup
 
